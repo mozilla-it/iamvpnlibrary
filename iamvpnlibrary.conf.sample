@@ -1,0 +1,89 @@
+[ldap-bind]
+# This section defines how we connect to the LDAP server
+#
+# These first three should be LDAP-obvious, the URL
+# of the server, and the bind user and password.
+url = ldap://ldapserver.yourcompany.com
+bind_dn = uid=bind-user,ou=logins,dc=yourcompany
+bind_password = 12345
+#
+# Next, we define the base DN of the server, and
+# the base DN of groups.  They can be the same.
+base = dc=yourcompany
+groups_base = ou=groups,%(base)s
+
+
+[ldap-schema-users]
+# These are items that define the user portion of
+# the LDAP schema.
+#
+# Most humans have an RDN of mail=them@company.com.  'mail' is the RDN
+# attribute.  non-humans ruin that, with uid=somename,ou=logins.
+# That said, nonhumans have their mail attribute set to an address
+# that matches their VPN certificate.  So, when we say 'mail_attribute'
+# we actually mean "what a user's RDN attribute would be" in most any
+# other place.  So when you look down at the next section of this
+# example config, imagine this is the same as 'rdn_attribute'
+mail_attribute = mail
+#
+# The 'enabled_user_filter' is "how do you define if a user is not
+# disabled?"  This could be as complex as you want it to be.
+# It just needs to be a valid prefix filter.
+enabled_user_filter = (!(employeeType=DISABLED))
+
+
+[ldap-schema-vpn-acls]
+# These are items that define the VPN ACL portion of
+# the LDAP schema.
+#
+# The RDN attribute that defined what an ACL is named:
+rdn_attribute = cn
+#
+# attributes of an ACL that list users.  It is assumed in the code that
+# the values are DNs
+attribute_user = member
+#
+# attributes of an ACL that list CIDR/port ACLs.  These are strings that
+# require parsing into useful blocks.
+attribute_host = ipHostNumber
+#
+# This is a filter ACL to find all VPN ACLs.  Could be name, could be
+# an objectclass, if you're slick.  Just some valid prefix filter.
+# This should be how you look for ALL VPN ACLs, so, you should have
+# some kind of wildcard in here:
+all_acls_filter = (&(objectClass=GroupOfNames)(%(rdn_attribute)s=vpn_*))
+#
+# This is a filter ACL to find your default ACL group.  That is, "if a user
+# doesn't pass this check, they shouldn't be using the VPN."  This could
+# be "member of some group", it could be "(objectClass=*)" if you're
+# super permissive and allow anyone.
+minimum_group_filter = (&(objectClass=GroupOfNames)(%(rdn_attribute)s=vpn_default))
+#
+# This is the group that defines users who are not required to use MFA when
+# they log in.  This probably includes bots from remote sites.  Use this
+# with caution.
+mfa_exempt_group_filter = (&(objectClass=GroupOfNames)(%(rdn_attribute)s=duo_vpn_exceptions))
+
+
+[testing]
+# The 'testing' section contains information for the unit tests.
+# A production instance can/should empty this.
+#
+# Here's an email address that is bad.  This will help us find cases where
+# someone should fail out.
+bad_user = someone_fake@badaddress.org
+#
+# This should be a valid user in your testing (someone who should be able
+# to log in.  Just having a username will get us a lot of tests.
+# If this user DOESN'T exist, you will have a looot of test failures.
+normal_user = me@company.com
+#
+# If you hand over that user's password, you can run the full suite of
+# unit tests.  It's only really needed to do non-MFA testing, so if you
+# don't want to provide it, that's cool.  It's barely needed.
+#
+# Remember: if you do 'normal_user_password = anything', it tries the password
+# of 'anything'.  Leaving it blank tries a blank password.  Leave this line
+# commented out completely to get a pythonic 'None' and skip password based
+# testing.
+; normal_user_password = 12345
