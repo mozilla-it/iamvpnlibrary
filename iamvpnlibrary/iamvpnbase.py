@@ -7,6 +7,7 @@
     This file creates a base object for IAM VPN access information.
 """
 
+import os
 import collections
 try:
     # 2.7's module:
@@ -52,12 +53,14 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
             conf_file = [conf_file]
         config = ConfigParser()
         for filename in conf_file:
-            try:
-                config.read(filename)
-                break
-            except:  # pylint: disable=bare-except
-                # This bare-except is due to 2.7 limitations in configparser.
-                pass
+            if os.path.isfile(filename):
+                try:
+                    config.read(filename)
+                    break
+                except:  # pylint: disable=bare-except
+                    # This bare-except is due to 2.7
+                    # limitations in configparser.
+                    pass
         return config
 
     def read_item_from_config(self, section=None, key=None, default=None):
