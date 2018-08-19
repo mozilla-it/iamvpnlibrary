@@ -1,5 +1,7 @@
 # Our config file:
 iamvpnlibrary.conf
+# RPMs that get built
+python-iamvpnlibrary-*.noarch.rpm
 
 # Imported from https://github.com/github/gitignore/raw/master/Python.gitignore
 # Byte-compiled / optimized / DLL files
