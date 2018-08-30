@@ -8,10 +8,10 @@ test:
 	python -B -m unittest discover -f -s test
 
 pep8:
-	@find . -type f -name '*.py' -exec pep8 {} \;
+	@find ./* `git submodule --quiet foreach 'echo -n "-path ./$$path -prune -o "'` -type f -name '*.py' -exec pep8 {} \;
 
 pylint:
-	@find . -type f -name '*.py' -exec pylint -r no --disable=locally-disabled {} \;
+	@find ./* `git submodule --quiet foreach 'echo -n "-path ./$$path -prune -o "'` -type f -name '*.py' -exec pylint -r no --disable=locally-disabled {} \;
 
 rpm:
 	fpm -s python -t rpm --rpm-dist "$$(rpmbuild -E '%{?dist}' | sed -e 's#^\.##')" --iteration 1 setup.py
