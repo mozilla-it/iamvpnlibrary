@@ -288,7 +288,13 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         # We will raise here if the address was not parseable.
         # This is intentional.  We mainly care about this from
         # within the 'is valid' call.
-        return ParsedACL(address=address,
+        #
+        # At this point, time to return.  Populate a ParsedACL.
+        # We don't know the rule that caused this string at this point.
+        # That's okay.  Just fire it back upstream, someone can add in
+        # the rule if they care to track it.
+        return ParsedACL(rule='',
+                         address=address,
                          portstring=port_string,
                          description=description)
 
@@ -342,19 +348,29 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                     not in attrs_dict:
                 # ^ ACLs can be empty.
                 continue
+            rulename = self.config.get('ldap_vpn_acls_rdn_attribute')
             for host_entry in attrs_dict[
                     self.config.get('ldap_vpn_acls_attribute_host')]:
                 try:
-                    acl_object = self._split_vpn_acl_string(host_entry)
+                    raw_acl_object = self._split_vpn_acl_string(host_entry)
                 except netaddr.core.AddrFormatError:
-                    acl_object = None
-                if acl_object:
+                    raw_acl_object = None
+                if raw_acl_object:
                     # If something ISN'T valid, silently ignore it.
                     # The idea here is, if it's invalid, they won't
                     # get access to something anyway, so, failing
                     # silently is fine.  If they need access, someone
                     # will complain, and someone will find the bad ACL.
                     #
+                    # Now, if it WAS valid, repack the namedtuple ParsedACL
+                    # to include the name of the rule that got us this
+                    # particular ACL line.
+                    acl_object = ParsedACL(
+                        rule=rulename,
+                        address=raw_acl_object.address,
+                        portstring=raw_acl_object.portstring,
+                        description=raw_acl_object.description,
+                    )
                     # Add it to the list we're sending back.
                     acls.append(acl_object)
         return acls

@@ -42,27 +42,27 @@ class TestLDAPFunctions(unittest.TestCase):
         """
         self.assertEqual(
             self.library._split_vpn_acl_string('1.1.1.1'),
-            ParsedACL(address=IPNetwork('1.1.1.1/32'),
+            ParsedACL(rule='', address=IPNetwork('1.1.1.1/32'),
                       portstring='', description=''))
         self.assertEqual(
             self.library._split_vpn_acl_string('1.1.1.1/30'),
-            ParsedACL(address=IPNetwork('1.1.1.1/30'),
+            ParsedACL(rule='', address=IPNetwork('1.1.1.1/30'),
                       portstring='', description=''))
         self.assertEqual(
             self.library._split_vpn_acl_string('1.1.1.1:443'),
-            ParsedACL(address=IPNetwork('1.1.1.1/32'),
+            ParsedACL(rule='', address=IPNetwork('1.1.1.1/32'),
                       portstring='443', description=''))
         self.assertEqual(
             self.library._split_vpn_acl_string('dead::beef'),
-            ParsedACL(address=IPNetwork('dead::beef/128'),
+            ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
                       portstring='', description=''))
         self.assertEqual(
             self.library._split_vpn_acl_string('dead::beef/64'),
-            ParsedACL(address=IPNetwork('dead::beef/64'),
+            ParsedACL(rule='', address=IPNetwork('dead::beef/64'),
                       portstring='', description=''))
         self.assertEqual(
             self.library._split_vpn_acl_string('[dead::beef]:443'),
-            ParsedACL(address=IPNetwork('dead::beef/128'),
+            ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
                       portstring='443', description=''))
         with self.assertRaises(netaddr.core.AddrFormatError):
             self.library._split_vpn_acl_string('1.1.1.1111:443')

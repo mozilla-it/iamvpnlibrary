@@ -21,7 +21,7 @@ except ImportError:
 
 
 ParsedACL = collections.namedtuple(
-    'ParsedACL', ['address', 'portstring', 'description'])
+    'ParsedACL', ['rule', 'address', 'portstring', 'description'])
 
 
 class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
