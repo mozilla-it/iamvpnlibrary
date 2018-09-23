@@ -348,7 +348,11 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                     not in attrs_dict:
                 # ^ ACLs can be empty.
                 continue
-            rulename = self.config.get('ldap_vpn_acls_rdn_attribute')
+            # The rulename is the 'cn'.  The [0] will always work
+            # because it's the rule RDN, and thus will be present
+            # and unique.
+            rulename = attrs_dict[
+                self.config.get('ldap_vpn_acls_rdn_attribute')][0]
             for host_entry in attrs_dict[
                     self.config.get('ldap_vpn_acls_attribute_host')]:
                 try:
