@@ -34,13 +34,16 @@ class TestBaseFunctions(unittest.TestCase):
     def test_init(self):
         """ Verify that the self object was initialized """
         self.assertIsInstance(self.library,
-                              iamvpnlibrary.iamvpnbase.IAMVPNLibraryBase)
-        self.assertIsNotNone(self.library.configfile)
+                              iamvpnlibrary.iamvpnbase.IAMVPNLibraryBase,
+                              'Did not create a base object')
+        self.assertIsNotNone(self.library.configfile,
+                             'Did not create a config object')
 
     def test_ingest_config_from_file(self):
         """ Verify that the library got a configparser object """
         result = self.library._ingest_config_from_file()
-        self.assertIsInstance(result, ConfigParser)
+        self.assertIsInstance(result, ConfigParser,
+                              'Did not create a config object')
 
     def test_read_item_from_config(self):
         """
