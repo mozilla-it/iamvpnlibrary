@@ -18,5 +18,5 @@ rpm:
 	@rm -rf build $(PACKAGE).egg-info
 
 clean:
-	rm -f *.pyc test/*.pyc
+	rm -f $(PACKAGE)/*.pyc test/*.pyc
 	rm -rf build $(PACKAGE).egg-info
