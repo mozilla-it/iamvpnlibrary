@@ -227,7 +227,7 @@ class TestLDAPFunctions(unittest.TestCase):
                               'Must return a set')
         self.assertGreater(
             len(result), 0,
-            ('If this failed, check the group size. '
+            ('If this failed, check the group size or your bind user perms. '
              "It should be small-ish, but if it's zero that's weird."))
         self.assertLess(
             len(result), 10,

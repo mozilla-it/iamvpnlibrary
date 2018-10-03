@@ -1,3 +1,24 @@
+[failure]
+# This defines the "VPN failure mode".
+# At some point, the communication will fail, between the VPN and the
+# upstream IAM services  (LDAP, Duo, whatever).  So, you have a choice
+# to make in the manner in which you guide the code to react to being
+# offline, because those clients are still trying to connect.
+#
+# * fail_open = True - you will take decisions that will lead towards
+# allowing users to connect.  That means different things for different
+# functions, but in general it means to act forgivingly, but not insanely.
+# "when the fire alarm goes off, all doors unlock, even the bank vault"
+#
+# * fail_open = False - you will take decisions that will lead towards
+# a secure environment.  People who cannot be explicitly verified will
+# be denied.  That could lead to someone making a decision that
+# disconnects someone, or denies access.  Your response time will be
+# impacted during an outage.
+# "when the fire alarm goes off, all doors lock."
+fail_open = False
+
+
 [ldap-bind]
 # This section defines how we connect to the LDAP server
 #

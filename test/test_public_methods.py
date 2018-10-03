@@ -19,7 +19,7 @@ sys.dont_write_bytecode = True
 class PublicTestsMixin(object):
     """
         These are intended to exercise the public methods via
-        'whatever plumbing' we default to.
+        'whatever plumbing' we default to, when the server is up.
 
         IF THERE IS ANY MENTION OF LDAP IN THIS SUITE, EVEN AN EXCEPTION,
         YOU HAVE WRITTEN A BAD TEST.  USE NO LDAP IN HERE.  NOT DNs, NOTHING.
@@ -35,7 +35,8 @@ class PublicTestsMixin(object):
         self.bad_user = self.library.read_item_from_config(
             section='testing', key='bad_user', default=None)
 
-    def test_user_allowed_to_vpn(self):
+    # user_allowed_to_vpn 01
+    def test_01_serverup_good(self):
         """
             This test seeks to verify that a user is allowed to connect
             to the VPN
@@ -45,13 +46,20 @@ class PublicTestsMixin(object):
         result = self.library.user_allowed_to_vpn(self.normal_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
         self.assertTrue(result, 'good user must return True')
+
+    def test_01_serverup_bad(self):
+        """
+            This test seeks to verify that a bad user is never allowed
+            to connect to the VPN
+        """
         if self.bad_user is None:
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.user_allowed_to_vpn(self.bad_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
         self.assertFalse(result, 'bad user must return False')
 
-    def test_get_allowed_vpn_ips(self):
+    # get_allowed_vpn_ips 02
+    def test_02_serverup_good(self):
         """
             This test seeks to verify that a user has a valid set
             of IP addresses for them to get to.
@@ -73,7 +81,20 @@ class PublicTestsMixin(object):
         self.assertGreaterEqual(address.size, 1,
                                 'The address did not have a size?')
 
-    def test_get_allowed_vpn_acls(self):
+    def test_02_serverup_bad(self):
+        """
+            This test seeks to verify that a bad user has a valid set
+            of IP addresses for them to get to.
+        """
+        if self.bad_user is None:
+            self.skipTest('Must provide a .bad_user to test')
+        result = self.library.get_allowed_vpn_ips(self.bad_user)
+        self.assertIsInstance(result, list, 'Check must return a list')
+        self.assertEqual(len(result), 0,
+                         'A bad user should have no allowed IPs')
+
+    # get_allowed_vpn_acls 03
+    def test_03_serverup_good(self):
         """
             This test seeks to verify that a user has a valid set
             of IP addresses + ports for them to get to.
@@ -103,7 +124,20 @@ class PublicTestsMixin(object):
         self.assertIsInstance(pacl.description, str,
                               'The ParsedACL description was not a string')
 
-    def test_does_user_require_vpn_mfa(self):
+    def test_03_serverup_bad(self):
+        """
+            This test seeks to verify that a bad user has a no IPs/ports
+        """
+        if self.bad_user is None:
+            self.skipTest('Must provide a .bad_user to test')
+        result = self.library.get_allowed_vpn_acls(self.bad_user)
+        self.assertIsInstance(result, list,
+                              'Did not return a list')
+        self.assertEqual(len(result), 0,
+                         'A bad user should have no allowed IPs')
+
+    # does_user_require_vpn_mfa 04
+    def test_04_serverup_good(self):
         """
             This test seeks to verify that a user connecting to VPN
             must use MFA.
@@ -113,15 +147,22 @@ class PublicTestsMixin(object):
         result = self.library.does_user_require_vpn_mfa(self.normal_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
         self.assertTrue(result, 'good user must return True')
-        # Weird logic reminder, a fake user must be made to MFA.
+        # IMPROVEME - might want to list one of the excepted users
+
+    def test_04_serverup_bad(self):
+        """
+            This test seeks to verify that a user connecting to VPN
+            must use MFA.
+        """
         if self.bad_user is None:
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.does_user_require_vpn_mfa(self.bad_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
+        # Weird logic reminder, a fake user must be made to MFA.
         self.assertTrue(result, 'bad user must return True')
-        # IMPROVEME - might want to list one of the excepted users
 
-    def test_non_mfa_vpn_auth_good(self):
+    # non_mfa_vpn_authentication 05
+    def test_05_serverup_good(self):
         """
             This test seeks to verify that a user who does not use
             MFA can authenticate.
@@ -139,7 +180,7 @@ class PublicTestsMixin(object):
         self.assertIsInstance(result, bool, 'Check must return a bool')
         self.assertTrue(result, 'A good password must return True')
 
-    def test_non_mfa_vpn_auth_bad(self):
+    def test_05_serverup_bad(self):
         """
             This test seeks to verify that a user who does not exist
             is given a hard time.
@@ -153,6 +194,86 @@ class PublicTestsMixin(object):
         # are MFA-required
         self.assertFalse(result, 'A bad user must return False')
 
+
+class PublicTestsServerDownMixin(object):
+    """
+        These are intended to exercise the public methods
+        when the server is down
+
+        The name of the class must end in 'MixIn' (any case) to pass pylint
+    """
+    # user_allowed_to_vpn 01
+    def test_01_serverdown(self):
+        """
+            This test seeks to verify that, when the server is down,
+            a user follows the fail_open guidelines
+        """
+        for fail_open_mode in [True, False]:
+            self.library.fail_open = fail_open_mode
+            result = self.library.user_allowed_to_vpn('dummy_user')
+            self.assertIsInstance(result, bool, 'Check must return a bool')
+            self.assertEqual(result, fail_open_mode,
+                             ('user_allowed_to_vpn must follow '
+                              'the value of fail_open'))
+
+    # get_allowed_vpn_ips 02
+    def test_02_serverdown(self):
+        """
+            This test seeks to verify that, when the server is down,
+            a user gets no IPs.
+        """
+        for fail_open_mode in [True, False]:
+            self.library.fail_open = fail_open_mode
+            result = self.library.get_allowed_vpn_ips('dummy_user')
+            self.assertIsInstance(result, list, 'Check must return a list')
+            self.assertEqual(len(result), 0,
+                             'No allowed IPs when the server is off')
+
+    # get_allowed_vpn_acls 03
+    def test_03_serverdown(self):
+        """
+            This test seeks to verify that, when the server is down,
+            a user gets no ACLs.
+        """
+        for fail_open_mode in [True, False]:
+            self.library.fail_open = fail_open_mode
+            result = self.library.get_allowed_vpn_acls('dummy_user')
+            self.assertIsInstance(result, list,
+                                  'Did not return a list')
+            self.assertEqual(len(result), 0,
+                             'No allowed ACLs when the server is off')
+
+    # does_user_require_vpn_mfa 04
+    def test_04_serverdown(self):
+        """
+            This test seeks to verify that, when the server is down,
+            a user's MFA requirements follow fail_open reqs.
+        """
+        for fail_open_mode in [True, False]:
+            self.library.fail_open = fail_open_mode
+            result = self.library.does_user_require_vpn_mfa('dummy_user')
+            self.assertIsInstance(result, bool, 'Check must return a bool')
+            # Weird logic reminder, a fake user must be made to MFA.
+            self.assertEqual(result, fail_open_mode,
+                             ('does_user_require_vpn_mfa must track '
+                              'to fail_open'))
+
+    # non_mfa_vpn_authentication 05
+    def test_05_serverdown(self):
+        """
+            This test seeks to verify that, when the server is down,
+            a user's MFA requirements follow fail_open reqs.
+        """
+        for fail_open_mode in [True, False]:
+            self.library.fail_open = fail_open_mode
+            result = self.library.non_mfa_vpn_authentication(
+                'dummy_user', 'user_obviously_has_no_pass')
+            self.assertIsInstance(result, bool, 'Check must return a bool')
+            self.assertEqual(result, fail_open_mode,
+                             ('non_mfa_vpn_authentication must track '
+                              'to fail_open'))
+
+
 # When there's a future authentication class, you'll want this:
 # class TestPublicFunctionsFUTURE(PublicTestsMixin, unittest.TestCase):
 #     """
@@ -164,17 +285,45 @@ class PublicTestsMixin(object):
 #         self.core_setup()
 
 
-class TestPublicFunctionsLDAP(PublicTestsMixin, unittest.TestCase):
+class TestPubFuncsLDAPup(PublicTestsMixin, unittest.TestCase):
     """
         Test the public methods by calling into the LDAP library
     """
     def setUp(self):
         """ Prepare test rig """
-        self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
+        try:
+            # This should never fail.  But if it does, I have no
+            # idea why it would, so, catch all exceptions deliberately.
+            # Keep in mind that we don't want to detail LDAP-specific
+            # reasons here.  "It failed" is enough for testing.
+            self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
+        except Exception as err:  # pylint: disable=broad-except
+            self.fail(err)
         self.core_setup()
 
 
-class TestPublicFunctionsMAIN(PublicTestsMixin, unittest.TestCase):
+class TestPubFuncsLDAPdown(PublicTestsServerDownMixin, unittest.TestCase):
+    """
+        Test the public methods by calling into the LDAP library,
+        but disconnect from the server first so there's no server to talk to.
+
+        Note that we test this as the LDAP method only, not the abstracted
+        method-doesn't-matter way.
+    """
+    def setUp(self):
+        """ Prepare test rig """
+        try:
+            # This should never fail.  But if it does, I have no
+            # idea why it would, so, catch all exceptions deliberately.
+            # Keep in mind that we don't want to detail LDAP-specific
+            # reasons here.  "It failed" is enough for testing.
+            self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
+        except Exception as err:  # pylint: disable=broad-except
+            self.fail(err)
+        self.library.conn.unbind_s()
+
+
+class TestPubFuncsMAIN(PublicTestsMixin, unittest.TestCase):
     """
         Test the public methods by calling into the main/exposed library
     """

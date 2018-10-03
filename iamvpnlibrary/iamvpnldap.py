@@ -46,6 +46,22 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             self.config.get('ldap_bind_dn'),
             self.config.get('ldap_bind_password'))
 
+    def is_online(self):
+        """
+            Determine if we should give answers from the server, or
+            perform our best guess while offline.
+
+            This check looks for an offline server.  There may be
+            more/better ways to do this.
+        """
+        try:
+            # Try to grab a result.  Since we only do synch calls,
+            # this will always return.  Unless we're disconnected.
+            self.conn.result(timeout=0)
+            return True
+        except ldap.LDAPError:
+            return False
+
     def _validate_config_file(self):
         """
             Here we go through the options we reqire to come from the
@@ -210,14 +226,15 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                          'mail=user2@foo.com,o=com,dc=company' ...])
         """
         users = set()
+        sought_attr = self.config.get('ldap_vpn_acls_attribute_user')
         res = self.conn.search_s(
             self.config.get('ldap_groups_base'), ldap.SCOPE_SUBTREE,
             filterstr=self.config.get('ldap_vpn_acls_mfa_exempt_group_filter'),
-            attrlist=[self.config.get('ldap_vpn_acls_attribute_user')])
+            attrlist=[sought_attr])
         for _dn, attr in res:
-            for userdn in attr[
-                    self.config.get('ldap_vpn_acls_attribute_user')]:
-                users.add(userdn)
+            if sought_attr in attr:
+                for userdn in attr[sought_attr]:
+                    users.add(userdn)
         return users
 
     def _all_vpn_allowed_users(self):
@@ -396,6 +413,8 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
         if not isinstance(input_email, basestring):
             raise TypeError(input_email, 'Argument must be a string')
+        if not self.is_online():
+            return self.fail_open
         all_allowed_users = self._all_vpn_allowed_users()
         try:
             user_dn = self._get_user_dn_by_username(input_email)
@@ -419,6 +438,40 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
         if not isinstance(input_email, basestring):
             raise TypeError(input_email, 'Argument must be a string')
+        if not self.is_online():
+            # This is going to be a bit of mental gymnastics.
+            # This is ridiculously overthought.
+            #
+            # We tried to get the list of exempt users from LDAP
+            # and LDAP failed us, for whatever reason.  Now, having
+            # done so, what do we do, with regards to failing
+            # open.  An LDAP failure doesn't mean we've had a
+            # Duo failure.  So what we do here is we return
+            # the fail_open mode.  This is more complex than it
+            # should maybe be.
+            #
+            # If we return False, we're into a dangerous path,
+            # because you have no LDAP right now, which means
+            # that you could end up on a path whereby someone
+            # is then given a fail_open that lets them bypass
+            # a password, and then you have people logging in
+            # with ZERO credentials.
+            # If we return True, anyone who normally doesn't
+            # have an MFA token is going to lose, because they
+            # never had a token to begin with.
+            #
+            # BUT.  If this is an LDAP burp and Duo is still
+            # working, then saying True here will make Duo
+            # make a decision for us.  and if the box is in
+            # isolation mode, then how are you even talking to it.
+            #
+            # The better move is to have your upstream code go and
+            # say "I can't talk to LDAP, that's a requirement,
+            # game over."  And then, it doesn't matter what this
+            # library calls, because it'll never be in that
+            # situation.  But, we need to have a decision, so...
+            # IMPROVEME
+            return self.fail_open
         exempted_users = self._vpn_mfa_exempt_users()
         try:
             user_dn = self._get_user_dn_by_username(input_email)
@@ -426,7 +479,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # True : they don't exist, so we're into a
             # don'tcare edge case.  They are not exempt.
             return True
-        # If they exist and are NOT in this list, then we want MFA
+        # If the user exists and are NOT in a list, then we want MFA.
         return user_dn not in exempted_users
 
     def get_allowed_vpn_ips(self, input_email):
@@ -437,15 +490,12 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return: ['cidr1/32', 'cidr2/30', ...]
 
             Outside user: get_user_routes
-       """
-        if not isinstance(input_email, basestring):
-            raise TypeError(input_email, 'Argument must be a string')
-        try:
-            user_acls = self._sanitized_vpn_acls_for_user(input_email)
-        except ldap.NO_SUCH_OBJECT:
-            # A nonexistent user has no ACLs
-            user_acls = []
+        """
+        if not self.is_online():
+            # Absentee server means no IPs
+            return []
         results = []
+        user_acls = self.get_allowed_vpn_acls(input_email)
         for acl_object in user_acls:
             address_object = acl_object.address
             results.append(str(address_object.cidr))
@@ -459,10 +509,17 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return: [ParsedACL, ParsedACL, ...]
 
             Outside user: openvpn-netfilter
-       """
+        """
+        if not self.is_online():
+            # Absentee server means no ACLs
+            return []
         if not isinstance(input_email, basestring):
             raise TypeError(input_email, 'Argument must be a string')
-        return self._sanitized_vpn_acls_for_user(input_email)
+        try:
+            return self._sanitized_vpn_acls_for_user(input_email)
+        except ldap.NO_SUCH_OBJECT:
+            # A nonexistent user has no ACLs
+            return []
 
     def non_mfa_vpn_authentication(self, input_username, input_password):
         """
@@ -474,6 +531,9 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: duo_openvpn
         """
+        if not self.is_online():
+            # A user could not be looked up.  fail open as needed.
+            return self.fail_open
         if not isinstance(input_username, basestring):
             raise TypeError(input_username, 'Argument must be a string')
         if not isinstance(input_password, basestring):

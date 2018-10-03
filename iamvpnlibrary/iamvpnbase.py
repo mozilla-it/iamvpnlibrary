@@ -42,6 +42,12 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
             ingest the config file so upstream classes can use it
         """
         self.configfile = self._ingest_config_from_file()
+        if (self.configfile.has_section('failure') and
+                self.configfile.has_option('failure', 'fail_open')):
+            self.fail_open = self.configfile.getboolean('failure',
+                                                        'fail_open')
+        else:
+            self.fail_open = False
 
     def _ingest_config_from_file(self, conf_file=None):
         """
