@@ -8,7 +8,10 @@
 """
 
 import os
+import re
 import collections
+import ast
+import six
 try:
     # 2.7's module:
     from ConfigParser import SafeConfigParser as ConfigParser
@@ -49,6 +52,22 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
         except (NoOptionError, NoSectionError):  # pragma: no cover
             self.fail_open = False
 
+        try:
+            self.sudo_users = ast.literal_eval(
+                self.configfile.get('sudo', 'sudo_users'))
+        except:  # pragma: no cover  pylint: disable=bare-except
+            # This bare-except is due to 2.7 limitations in configparser.
+            self.sudo_users = []
+        if not isinstance(self.sudo_users, list):  # pragma: no cover
+            self.sudo_users = []
+
+        try:
+            # Note that we do a 'raw' get here because of regexp's
+            self.sudo_username_regexp = self.configfile.get(
+                'sudo', 'sudo_username_regexp', True)
+        except (NoOptionError, NoSectionError):  # pragma: no cover
+            self.sudo_username_regexp = None
+
     def _ingest_config_from_file(self, conf_file=None):
         """
             pull in config variables from a system file
@@ -77,3 +96,31 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
             return self.configfile.get(section, key)
         except (NoOptionError, NoSectionError, InterpolationMissingOptionError):
             return default
+
+    def verify_sudo_user(self, username_is=None, username_as=None):
+        """
+            This function exists to allow for us to determine if someone is
+            sudo'ing to someone else.
+            Input is a "before" and "after" user.
+            Output is the "after" user if the sudo is allowed, the "before" if they're not.
+        """
+        result = username_is
+        # Yes, result is BY DEFAULT set to '_is', because sudo'ing is a rare case.
+        # We will override this only after going through a gauntlet:
+        if username_is and username_as:
+            # ^ bypass on deletes
+            if (isinstance(self.sudo_username_regexp, six.string_types) and
+                    isinstance(self.sudo_users, list) and username_is in self.sudo_users):
+                # ^ This is deliberately unforgiving, as a safety measure.
+                # At this point we have:
+                # username_is - a cert-defined user, who is in the sudoers list, and
+                # username_as - a string that MAY indicate who the user wants to become.
+                try:
+                    as_match = re.match(self.sudo_username_regexp, username_as)
+                    # If the sudoer person typed in a string that regexp matches
+                    # our private pattern, we gather their target user out of the
+                    # regexp match, and assign it into username_as.
+                    result = as_match.group(1)
+                except (re.error, AttributeError):
+                    pass
+        return result

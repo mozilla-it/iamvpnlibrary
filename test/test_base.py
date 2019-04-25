@@ -55,3 +55,56 @@ class TestBaseFunctions(unittest.TestCase):
         self.assertIsInstance(result, str, (
             "Could not find testing/normal_user in the config file.  "
             "While not fatal, it means your tests will be boring."))
+
+    def test_sudo_user_edge(self):
+        """
+            This tests the verify_sudo_user function under poor situations
+            These should always return the first argument
+        """
+        # deliberately setting sudo users parameters:
+        self.library.sudo_users = []
+        self.library.sudo_username_regexp = ''
+
+        result = self.library.verify_sudo_user(None, None)
+        self.assertEqual(result, None)
+
+        result = self.library.verify_sudo_user('before', None)
+        self.assertEqual(result, 'before')
+
+        result = self.library.verify_sudo_user(None, 'after')
+        self.assertEqual(result, None)
+
+        result = self.library.verify_sudo_user('before', 'after')
+        self.assertEqual(result, 'before')
+
+        result = self.library.verify_sudo_user('hacker', 'su-to-after')
+        self.assertEqual(result, 'hacker')
+
+        result = self.library.verify_sudo_user('before', 'su-to-after')
+        self.assertEqual(result, 'before')
+
+    def test_sudo_user_normal(self):
+        """
+            This tests the verify_sudo_user function under normal conditions
+        """
+        # deliberately setting sudo users parameters:
+        self.library.sudo_users = ['before']
+        self.library.sudo_username_regexp = r'^su-to-(\S+)$'
+
+        result = self.library.verify_sudo_user(None, None)
+        self.assertEqual(result, None)
+
+        result = self.library.verify_sudo_user('before', None)
+        self.assertEqual(result, 'before')
+
+        result = self.library.verify_sudo_user(None, 'after')
+        self.assertEqual(result, None)
+
+        result = self.library.verify_sudo_user('before', 'after')
+        self.assertEqual(result, 'before')
+
+        result = self.library.verify_sudo_user('hacker', 'su-to-after')
+        self.assertEqual(result, 'hacker')
+
+        result = self.library.verify_sudo_user('before', 'su-to-after')
+        self.assertEqual(result, 'after')
