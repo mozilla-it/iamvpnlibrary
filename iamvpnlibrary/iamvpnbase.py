@@ -11,13 +11,14 @@ import os
 import collections
 try:
     # 2.7's module:
-    from ConfigParser import NoOptionError, \
-        InterpolationMissingOptionError
     from ConfigParser import SafeConfigParser as ConfigParser
-except ImportError:
+    from ConfigParser import NoOptionError, NoSectionError, \
+        InterpolationMissingOptionError
+except ImportError:  # pragma: no cover
     # 3's module:
-    from configparser import ConfigParser, \
-        NoOptionError, InterpolationMissingOptionError
+    from configparser import ConfigParser
+    from configparser import NoOptionError, NoSectionError, \
+        InterpolationMissingOptionError
 
 
 ParsedACL = collections.namedtuple(
@@ -42,11 +43,10 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
             ingest the config file so upstream classes can use it
         """
         self.configfile = self._ingest_config_from_file()
-        if (self.configfile.has_section('failure') and
-                self.configfile.has_option('failure', 'fail_open')):
+        try:
             self.fail_open = self.configfile.getboolean('failure',
                                                         'fail_open')
-        else:
+        except (NoOptionError, NoSectionError):  # pragma: no cover
             self.fail_open = False
 
     def _ingest_config_from_file(self, conf_file=None):
@@ -55,7 +55,7 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
         """
         if conf_file is None:
             conf_file = self.__class__.CONFIG_FILE_LOCATIONS
-        if isinstance(conf_file, basestring):
+        if not isinstance(conf_file, list):
             conf_file = [conf_file]
         config = ConfigParser()
         for filename in conf_file:
@@ -63,7 +63,7 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
                 try:
                     config.read(filename)
                     break
-                except:  # pylint: disable=bare-except
+                except:  # pragma: no cover  pylint: disable=bare-except
                     # This bare-except is due to 2.7
                     # limitations in configparser.
                     pass
@@ -75,7 +75,5 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
         """
         try:
             return self.configfile.get(section, key)
-        except NoOptionError:
-            return default
-        except InterpolationMissingOptionError:
+        except (NoOptionError, NoSectionError, InterpolationMissingOptionError):
             return default

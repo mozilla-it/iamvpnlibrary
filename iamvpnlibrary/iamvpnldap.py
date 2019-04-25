@@ -14,6 +14,7 @@
 
 import re
 import ldap
+import six
 import netaddr
 from .iamvpnbase import IAMVPNLibraryBase, ParsedACL
 
@@ -147,7 +148,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return: str of their DN
             raises if there's no such user.
         """
-        if not isinstance(input_username, basestring):
+        if not isinstance(input_username, six.string_types):
             raise TypeError(input_username, 'Argument must be a string')
         res = self.conn.search_s(
             self.config.get('ldap_base'), ldap.SCOPE_SUBTREE,
@@ -166,7 +167,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             #  If there's no user, that's a problem
             raise ldap.NO_SUCH_OBJECT(input_username,
                                       'Could not find any entry in LDAP')
-        elif len(res) > 1:
+        elif len(res) > 1:  # pragma: no cover
             # If there's more than one user with this email, that's bad.
             # Fail out here out of an abundance of caution.
             raise ldap.LDAPError(input_username,
@@ -265,7 +266,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return: ParsedACL
                     raise for horrible inputs
         """
-        if not isinstance(input_string, basestring):
+        if not isinstance(input_string, six.string_types):
             raise TypeError(input_string, 'Argument must be a string')
         # input_string should be:
         #    '1.1.1.1 # foo.m.c'
@@ -321,7 +322,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             input_email: "user@company.com"
             return: ldap response
         """
-        if not isinstance(input_email, basestring):
+        if not isinstance(input_email, six.string_types):
             raise TypeError(input_email, 'Argument must be a string')
         user_dn = self._get_user_dn_by_username(input_email)
         res = self.conn.search_s(
@@ -356,7 +357,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             different people want different results (every ACL? every IP?
             Just the IPs?  What about a CIDR that encapsulates another?)
         """
-        if not isinstance(input_email, basestring):
+        if not isinstance(input_email, six.string_types):
             raise TypeError(input_email, 'Argument must be a string')
         raw_acls = self._fetch_vpn_acls_for_user(input_email)
         acls = []
@@ -374,7 +375,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                     self.config.get('ldap_vpn_acls_attribute_host')]:
                 try:
                     raw_acl_object = self._split_vpn_acl_string(host_entry)
-                except netaddr.core.AddrFormatError:
+                except netaddr.core.AddrFormatError:  # pragma: no cover
                     raw_acl_object = None
                 if raw_acl_object:
                     # If something ISN'T valid, silently ignore it.
@@ -411,7 +412,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             Outside user: duo_openvpn
             Outside user: duo_openvpn kill script
         """
-        if not isinstance(input_email, basestring):
+        if not isinstance(input_email, six.string_types):
             raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             return self.fail_open
@@ -438,7 +439,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: duo_openvpn
         """
-        if not isinstance(input_email, basestring):
+        if not isinstance(input_email, six.string_types):
             raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             # This is going to be a bit of mental gymnastics.
@@ -517,7 +518,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         if not self.is_online():
             # Absentee server means no ACLs
             return []
-        if not isinstance(input_email, basestring):
+        if not isinstance(input_email, six.string_types):
             raise TypeError(input_email, 'Argument must be a string')
         try:
             return self._sanitized_vpn_acls_for_user(input_email)
@@ -540,9 +541,9 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         if not self.is_online():
             # A user could not be looked up.  fail open as needed.
             return self.fail_open
-        if not isinstance(input_username, basestring):
+        if not isinstance(input_username, six.string_types):
             raise TypeError(input_username, 'Argument must be a string')
-        if not isinstance(input_password, basestring):
+        if not isinstance(input_password, six.string_types):
             raise TypeError(input_password, 'Argument must be a string')
 
         try:

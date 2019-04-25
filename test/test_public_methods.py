@@ -41,7 +41,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user is allowed to connect
             to the VPN
         """
-        if self.normal_user is None:
+        if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library.user_allowed_to_vpn(self.normal_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
@@ -52,7 +52,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a bad user is never allowed
             to connect to the VPN
         """
-        if self.bad_user is None:
+        if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.user_allowed_to_vpn(self.bad_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
@@ -64,7 +64,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user has a valid set
             of IP addresses for them to get to.
         """
-        if self.normal_user is None:
+        if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library.get_allowed_vpn_ips(self.normal_user)
         self.assertIsInstance(result, list, 'Check must return a list')
@@ -86,7 +86,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a bad user has a valid set
             of IP addresses for them to get to.
         """
-        if self.bad_user is None:
+        if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.get_allowed_vpn_ips(self.bad_user)
         self.assertIsInstance(result, list, 'Check must return a list')
@@ -99,7 +99,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user has a valid set
             of IP addresses + ports for them to get to.
         """
-        if self.normal_user is None:
+        if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library.get_allowed_vpn_acls(self.normal_user)
         self.assertIsInstance(result, list,
@@ -128,7 +128,7 @@ class PublicTestsMixin(object):
         """
             This test seeks to verify that a bad user has a no IPs/ports
         """
-        if self.bad_user is None:
+        if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.get_allowed_vpn_acls(self.bad_user)
         self.assertIsInstance(result, list,
@@ -142,7 +142,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user connecting to VPN
             must use MFA.
         """
-        if self.normal_user is None:
+        if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library.does_user_require_vpn_mfa(self.normal_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
@@ -154,7 +154,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user connecting to VPN
             must use MFA.
         """
-        if self.bad_user is None:
+        if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.does_user_require_vpn_mfa(self.bad_user)
         self.assertIsInstance(result, bool, 'Check must return a bool')
@@ -167,7 +167,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user who does not use
             MFA can authenticate.
         """
-        if self.normal_user is None:
+        if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library.non_mfa_vpn_authentication(
             self.normal_user, 'not_my_password')
@@ -185,7 +185,7 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user who does not exist
             is given a hard time.
         """
-        if self.bad_user is None:
+        if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.non_mfa_vpn_authentication(
             self.normal_user, 'user_obviously_has_no_pass')
@@ -297,7 +297,7 @@ class TestPubFuncsLDAPup(PublicTestsMixin, unittest.TestCase):
             # Keep in mind that we don't want to detail LDAP-specific
             # reasons here.  "It failed" is enough for testing.
             self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # pragma: no cover  pylint: disable=broad-except
             self.fail(err)
         self.core_setup()
 
@@ -318,7 +318,7 @@ class TestPubFuncsLDAPdown(PublicTestsServerDownMixin, unittest.TestCase):
             # Keep in mind that we don't want to detail LDAP-specific
             # reasons here.  "It failed" is enough for testing.
             self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:  # pragma: no cover  pylint: disable=broad-except
             self.fail(err)
         self.library.conn.unbind_s()
 
@@ -331,7 +331,3 @@ class TestPubFuncsMAIN(PublicTestsMixin, unittest.TestCase):
         """ Prepare test rig """
         self.library = iamvpnlibrary.IAMVPNLibrary()
         self.core_setup()
-
-
-if __name__ == "__main__":
-    unittest.main()

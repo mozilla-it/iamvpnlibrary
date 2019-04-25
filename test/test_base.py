@@ -16,7 +16,7 @@ import iamvpnlibrary.iamvpnbase
 try:
     # 2.7's module:
     from ConfigParser import SafeConfigParser as ConfigParser
-except ImportError:
+except ImportError:  # pragma: no cover
     # 3's module:
     from configparser import ConfigParser
 
@@ -55,6 +55,3 @@ class TestBaseFunctions(unittest.TestCase):
         self.assertIsInstance(result, str, (
             "Could not find testing/normal_user in the config file.  "
             "While not fatal, it means your tests will be boring."))
-
-if __name__ == "__main__":
-    unittest.main()
