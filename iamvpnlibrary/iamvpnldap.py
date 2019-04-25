@@ -208,14 +208,15 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                          'mail=user2@foo.com,o=com,dc=company' ...])
         """
         users = set()
+        sought_attr = self.config.get('ldap_vpn_acls_attribute_user')
         res = self.conn.search_s(
             self.config.get('ldap_groups_base'), ldap.SCOPE_SUBTREE,
             filterstr=self.config.get('ldap_vpn_acls_minimum_group_filter'),
-            attrlist=[self.config.get('ldap_vpn_acls_attribute_user')])
+            attrlist=[sought_attr])
         for _dn, attr in res:
-            for userdn in attr[
-                    self.config.get('ldap_vpn_acls_attribute_user')]:
-                users.add(userdn)
+            if sought_attr in attr:
+                for userdn in attr[sought_attr]:
+                    users.add(userdn)
         return users
 
     def _vpn_mfa_exempt_users(self):
