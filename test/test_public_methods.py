@@ -52,6 +52,8 @@ class PublicTestsMixin(object):
             This test seeks to verify that a bad user is never allowed
             to connect to the VPN
         """
+        with self.assertRaises(TypeError):
+            self.library.user_allowed_to_vpn([])
         if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.user_allowed_to_vpn(self.bad_user)
@@ -86,6 +88,8 @@ class PublicTestsMixin(object):
             This test seeks to verify that a bad user has a valid set
             of IP addresses for them to get to.
         """
+        with self.assertRaises(TypeError):
+            self.library.get_allowed_vpn_ips([])
         if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.get_allowed_vpn_ips(self.bad_user)
@@ -128,6 +132,8 @@ class PublicTestsMixin(object):
         """
             This test seeks to verify that a bad user has a no IPs/ports
         """
+        with self.assertRaises(TypeError):
+            self.library.get_allowed_vpn_acls([])
         if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.get_allowed_vpn_acls(self.bad_user)
@@ -154,6 +160,8 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user connecting to VPN
             must use MFA.
         """
+        with self.assertRaises(TypeError):
+            self.library.does_user_require_vpn_mfa([])
         if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.does_user_require_vpn_mfa(self.bad_user)
@@ -185,6 +193,10 @@ class PublicTestsMixin(object):
             This test seeks to verify that a user who does not exist
             is given a hard time.
         """
+        with self.assertRaises(TypeError):
+            self.library.non_mfa_vpn_authentication('foo', [])
+        with self.assertRaises(TypeError):
+            self.library.non_mfa_vpn_authentication([], 'foo')
         if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.non_mfa_vpn_authentication(
@@ -210,6 +222,8 @@ class PublicTestsServerDownMixin(object):
         """
         for fail_open_mode in [True, False]:
             self.library.fail_open = fail_open_mode
+            with self.assertRaises(TypeError):
+                self.library.user_allowed_to_vpn([])
             result = self.library.user_allowed_to_vpn('dummy_user')
             self.assertIsInstance(result, bool, 'Check must return a bool')
             self.assertEqual(result, fail_open_mode,
@@ -224,6 +238,8 @@ class PublicTestsServerDownMixin(object):
         """
         for fail_open_mode in [True, False]:
             self.library.fail_open = fail_open_mode
+            with self.assertRaises(TypeError):
+                self.library.get_allowed_vpn_ips([])
             result = self.library.get_allowed_vpn_ips('dummy_user')
             self.assertIsInstance(result, list, 'Check must return a list')
             self.assertEqual(len(result), 0,
@@ -251,6 +267,8 @@ class PublicTestsServerDownMixin(object):
         """
         for fail_open_mode in [True, False]:
             self.library.fail_open = fail_open_mode
+            with self.assertRaises(TypeError):
+                self.library.does_user_require_vpn_mfa([])
             result = self.library.does_user_require_vpn_mfa('dummy_user')
             self.assertIsInstance(result, bool, 'Check must return a bool')
             # Weird logic reminder, a fake user must be made to MFA.
@@ -266,6 +284,10 @@ class PublicTestsServerDownMixin(object):
         """
         for fail_open_mode in [True, False]:
             self.library.fail_open = fail_open_mode
+            with self.assertRaises(TypeError):
+                self.library.non_mfa_vpn_authentication('foo', [])
+            with self.assertRaises(TypeError):
+                self.library.non_mfa_vpn_authentication([], 'foo')
             result = self.library.non_mfa_vpn_authentication(
                 'dummy_user', 'user_obviously_has_no_pass')
             self.assertIsInstance(result, bool, 'Check must return a bool')

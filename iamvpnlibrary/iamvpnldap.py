@@ -497,6 +497,8 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: get_user_routes
         """
+        if not isinstance(input_email, six.string_types):
+            raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             # Absentee server means no IPs
             return []
@@ -516,11 +518,11 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: openvpn-netfilter
         """
+        if not isinstance(input_email, six.string_types):
+            raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             # Absentee server means no ACLs
             return []
-        if not isinstance(input_email, six.string_types):
-            raise TypeError(input_email, 'Argument must be a string')
         try:
             return self._sanitized_vpn_acls_for_user(input_email)
         except ldap.NO_SUCH_OBJECT:
@@ -539,13 +541,13 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: duo_openvpn
         """
-        if not self.is_online():
-            # A user could not be looked up.  fail open as needed.
-            return self.fail_open
         if not isinstance(input_username, six.string_types):
             raise TypeError(input_username, 'Argument must be a string')
         if not isinstance(input_password, six.string_types):
             raise TypeError(input_password, 'Argument must be a string')
+        if not self.is_online():
+            # A user could not be looked up.  fail open as needed.
+            return self.fail_open
 
         try:
             user_dn = self._get_user_dn_by_username(input_username)

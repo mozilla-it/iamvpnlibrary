@@ -40,6 +40,8 @@ class TestLDAPFunctions(unittest.TestCase):
             the ldap server, and verifies that they break into chunks that
             we expect.
         """
+        with self.assertRaises(TypeError):
+            self.library._split_vpn_acl_string([])
         self.assertEqual(
             self.library._split_vpn_acl_string('1.1.1.1'),
             ParsedACL(rule='', address=IPNetwork('1.1.1.1/32'),
@@ -137,6 +139,8 @@ class TestLDAPFunctions(unittest.TestCase):
         """
             Testing that we get back raw/ldap'ed acls for our test user.
         """
+        with self.assertRaises(TypeError):
+            self.library._fetch_vpn_acls_for_user([])
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library._fetch_vpn_acls_for_user(self.normal_user)
@@ -192,6 +196,8 @@ class TestLDAPFunctions(unittest.TestCase):
             Testing that we get back acls that we've flattened into being a
             list of ParsedACLs
         """
+        with self.assertRaises(TypeError):
+            self.library._sanitized_vpn_acls_for_user([])
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library._sanitized_vpn_acls_for_user(self.normal_user)
@@ -242,6 +248,8 @@ class TestLDAPFunctions(unittest.TestCase):
         """
             Testing that can turn an email address into a user's DN
         """
+        with self.assertRaises(TypeError):
+            self.library._get_user_dn_by_username([])
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library._get_user_dn_by_username(self.normal_user)
