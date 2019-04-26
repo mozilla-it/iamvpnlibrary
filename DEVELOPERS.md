@@ -25,7 +25,7 @@ The notion here is that LDAP is on its way out, and LDAP is not the only way we 
 
 As such, ```IAMVPNLibrary``` (the class) doesn't have public methods.  It passes through to whoever is upstream.  It COULD have methods, but make sure you're doing a smart thing if you do this.
 
-The mail library should have NO knowledge of LDAP.  Shouldn't pass anything upstream that looks like a DN, shouldn't raise any errors that need LDAP.  None of those shenanigans.
+The main library should have NO knowledge of LDAP.  Shouldn't pass anything upstream that looks like a DN, shouldn't raise any errors that need LDAP.  None of those shenanigans.
 
 # Testing
 
