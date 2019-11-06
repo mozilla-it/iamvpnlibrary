@@ -42,10 +42,13 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
         super(IAMVPNLibraryLDAP, self).__init__()
         self.config = self._validate_config_file()
-        self.conn = self._create_ldap_connection(
-            self.config.get('ldap_url'),
-            self.config.get('ldap_bind_dn'),
-            self.config.get('ldap_bind_password'))
+        try:
+            self.conn = self._create_ldap_connection(
+                self.config.get('ldap_url'),
+                self.config.get('ldap_bind_dn'),
+                self.config.get('ldap_bind_password'))
+        except ldap.LDAPError as ldaperr:
+            raise RuntimeError('Error connecting to LDAP IAM: {}'.format(ldaperr))
 
     def is_online(self):
         """
@@ -417,7 +420,10 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             return self.fail_open
-        all_allowed_users = self._all_vpn_allowed_users()
+        try:
+            all_allowed_users = self._all_vpn_allowed_users()
+        except ldap.SERVER_DOWN:
+            return self.fail_open
         try:
             user_dn = self._get_user_dn_by_username(input_email)
         except ldap.NO_SUCH_OBJECT:
