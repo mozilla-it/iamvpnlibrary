@@ -13,6 +13,7 @@
 # Copyright (c) 2018 Mozilla Corporation
 
 import re
+import socket
 import ldap
 import six
 import netaddr
@@ -258,7 +259,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         return allowed_users
 
     @staticmethod
-    def _split_vpn_acl_string(input_string):
+    def _split_vpn_acl_string(input_string):  # pylint: disable=too-many-branches
         """
             breaks apart a string into component pieces
             This could possibly move up to the base layer instead of LDAP.
@@ -304,21 +305,57 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # with nothing else.
             test_string = unparsed_destination
             port_string = ''
+
         # At this point we have something that's PROBABLY an address.
-        # Let's have the experts handle it.
-        address = netaddr.ip.IPNetwork(test_string)
-        # We will raise here if the address was not parseable.
-        # This is intentional.  We mainly care about this from
-        # within the 'is valid' call.
-        #
-        # At this point, time to return.  Populate a ParsedACL.
-        # We don't know the rule that caused this string at this point.
-        # That's okay.  Just fire it back upstream, someone can add in
-        # the rule if they care to track it.
-        return ParsedACL(rule='',
-                         address=address,
-                         portstring=port_string,
-                         description=description)
+        # Let's have the experts handle it:
+        try:
+            address = netaddr.ip.IPNetwork(test_string)
+            # If this doesn't bomb, it was a CIDR-like address.
+        except ValueError:  # pragma: no cover
+            # This catches a stupid error in old netaddr before 0.7.11
+            # https://github.com/drkjam/netaddr/issues/58
+            # We form the 'proper' error to raise, because in the future
+            # this is what will happen when netaddr is patched.
+            error_to_raise = netaddr.core.AddrFormatError('invalid ACL entry: %r!' % test_string)
+        except netaddr.core.AddrFormatError as errcode:  # pragma: no cover
+            error_to_raise = errcode
+        else:
+            # At this point, time to return.  Populate a ParsedACL.
+            # We don't know the rule that caused this string at this point.
+            # That's okay.  Just fire it back upstream, someone can add in
+            # the rule if they care to track it.
+            return ParsedACL(rule='',
+                             address=address,
+                             portstring=port_string,
+                             description=description)
+
+        # We got a string that wasn't valid as a CIDR.  Time to see if
+        # it was a hostname (let's save that) or garbage (discard)
+        # There's guesswork here.  If something resolves as hostname
+        # it's probably a hostname.  If it doesn't, it's something we
+        # didn't expect.  But either way, it's not a useful ACL.
+        try:
+            socket.gethostbyname(test_string)
+        except socket.error:
+            # We will raise here if the address was not parseable.
+            # This is intentional.  We mainly care about this from
+            # within the 'is valid' call.
+            raise error_to_raise
+        else:
+            # Populate a ParsedACL BUT BADLY.
+            # We are putting the hostNAME in 'address' instead of the majority
+            # case of an IPNetwork.  Since we've validated this enough to know
+            # that we're not sending garbage, we'll rely on someone upstream
+            # to turn this into multiple ACLs.  We only want to return ONE
+            # thing from this function.
+            if not description:
+                # If someone didn't include a comment, make the
+                # hostname be the description.
+                description = test_string
+            return ParsedACL(rule='',
+                             address=test_string,
+                             portstring=port_string,
+                             description=description)
 
     def _fetch_vpn_acls_for_user(self, input_email):
         """
@@ -387,18 +424,42 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                     # get access to something anyway, so, failing
                     # silently is fine.  If they need access, someone
                     # will complain, and someone will find the bad ACL.
-                    #
+
+                    # the address field is likely an IPNetwork, but could
+                    # be a string that is a hostname.  Let's check:
+                    raw_addr = raw_acl_object.address
+
+                    if isinstance(raw_addr, netaddr.ip.IPNetwork):
+                        # A list of 1, for easy looping below
+                        all_addresses = [raw_addr]
+                    else:
+                        # we got a hostname.  Prior testing said it
+                        # resolves so we shouldn't error here.
+                        try:
+                            # caution, gethostbyname_ex is ipv4-only.
+                            # caution: lookups from the server may not
+                            # be the same as lookups for a client.
+                            # Short of ingesting all routes and DNS from them,
+                            # we can never know for sure, but, we're trying.
+                            lookup = socket.gethostbyname_ex(raw_addr)
+                        except socket.error:
+                            # somehow, er did error, oh well.  No ACL.
+                            all_addresses = []
+                        else:
+                            all_addresses = [netaddr.ip.IPNetwork(x) for x in lookup[2]]
+
                     # Now, if it WAS valid, repack the namedtuple ParsedACL
                     # to include the name of the rule that got us this
                     # particular ACL line.
-                    acl_object = ParsedACL(
-                        rule=rulename,
-                        address=raw_acl_object.address,
-                        portstring=raw_acl_object.portstring,
-                        description=raw_acl_object.description,
-                    )
-                    # Add it to the list we're sending back.
-                    acls.append(acl_object)
+                    for address in all_addresses:
+                        acl_object = ParsedACL(
+                            rule=rulename,
+                            address=address,
+                            portstring=raw_acl_object.portstring,
+                            description=raw_acl_object.description,
+                        )
+                        # Add it to the list we're sending back.
+                        acls.append(acl_object)
         return acls
 
     ######################################################
