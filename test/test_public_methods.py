@@ -200,7 +200,7 @@ class PublicTestsMixin(object):
         if self.bad_user is None:  # pragma: no cover
             self.skipTest('Must provide a .bad_user to test')
         result = self.library.non_mfa_vpn_authentication(
-            self.normal_user, 'user_obviously_has_no_pass')
+            self.bad_user, 'user_obviously_has_no_pass')
         self.assertIsInstance(result, bool, 'Check must return a bool')
         # Someone who doesn't exist must be false, to indicate they
         # are MFA-required
