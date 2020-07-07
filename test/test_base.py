@@ -11,15 +11,14 @@
 # pylint: disable=protected-access
 
 import unittest
-import sys
+import os
 import test.context  # pylint: disable=unused-import
-import iamvpnlibrary.iamvpnbase
+import mock
+from iamvpnlibrary.iamvpnbase import IAMVPNLibraryBase
 try:
-    # 2.7's module:
-    from ConfigParser import SafeConfigParser as ConfigParser
+    import configparser
 except ImportError:  # pragma: no cover
-    # 3's module:
-    from configparser import ConfigParser
+    from six.moves import configparser
 
 
 class TestBaseFunctions(unittest.TestCase):
@@ -27,34 +26,116 @@ class TestBaseFunctions(unittest.TestCase):
 
     def setUp(self):
         """ Preparing test rig """
-        self.library = iamvpnlibrary.iamvpnbase.IAMVPNLibraryBase()
+        self.library = IAMVPNLibraryBase()
 
-    def test_init(self):
-        """ Verify that the self object was initialized """
-        self.assertIsInstance(self.library,
-                              iamvpnlibrary.iamvpnbase.IAMVPNLibraryBase,
-                              'Did not create a base object')
-        self.assertIsNotNone(self.library.configfile,
-                             'Did not create a config object')
+    def tearDown(self):
+        """ Clear the test rig """
+        self.library = None
 
-    def test_ingest_config_from_file(self):
-        """ Verify that the library got a configparser object """
-        result = self.library._ingest_config_from_file()
-        self.assertIsInstance(result, ConfigParser,
+    def test_00_init_no_conf(self):
+        ''' If we get nothing good from a config file '''
+        config = configparser.ConfigParser()
+        with mock.patch.object(IAMVPNLibraryBase, '_ingest_config_from_file',
+                               return_value=config):
+            library = IAMVPNLibraryBase()
+        self.assertEqual(library.fail_open, False)
+        self.assertEqual(library.sudo_users, [])
+        self.assertEqual(library.sudo_username_regexp, None)
+
+    def test_01_init_good_conf(self):
+        ''' If we get good things from a config file '''
+        config = configparser.ConfigParser()
+        config.add_section('failure')
+        config.set('failure', 'fail_open', 'true')
+        config.add_section('sudo')
+        config.set('sudo', 'sudo_users', "[ 'bob' ]")
+        config.set('sudo', 'sudo_username_regexp', r'^su-to-(\S+)$')
+        with mock.patch.object(IAMVPNLibraryBase, '_ingest_config_from_file',
+                               return_value=config):
+            library = IAMVPNLibraryBase()
+        self.assertEqual(library.fail_open, True)
+        self.assertEqual(library.sudo_users, ['bob'])
+        self.assertEqual(library.sudo_username_regexp, r'^su-to-(\S+)$')
+
+    def test_02_init_weird_conf(self):
+        ''' If we get weird things from a config file '''
+        config = configparser.ConfigParser()
+        config.add_section('failure')
+        config.set('failure', 'fail_open', 'foo')
+        config.add_section('sudo')
+        config.set('sudo', 'sudo_users', 'bob')
+        config.set('sudo', 'sudo_username_regexp', 'huh')
+        with mock.patch.object(IAMVPNLibraryBase, '_ingest_config_from_file',
+                               return_value=config):
+            library = IAMVPNLibraryBase()
+        self.assertEqual(library.fail_open, False)
+        self.assertEqual(library.sudo_users, [])
+        self.assertEqual(library.sudo_username_regexp, 'huh')
+
+    def test_03_ingest_no_config_files(self):
+        """ With no config files, get an empty ConfigParser """
+        with mock.patch.object(IAMVPNLibraryBase, 'CONFIG_FILE_LOCATIONS', new=[]):
+            result = self.library._ingest_config_from_file()
+        self.assertIsInstance(result, configparser.ConfigParser,
                               'Did not create a config object')
+        self.assertEqual(result.sections(), [],
+                         'Should not have found any configfile sections.')
 
-    def test_read_item_from_config(self):
-        """
-            This test is deliberately weaksauce, as we're in the base class
-            Anything super-interesting would be in a different class.
-        """
-        result = self.library.read_item_from_config(
-            section='testing', key='normal_user')
-        self.assertIsInstance(result, str, (
-            "Could not find testing/normal_user in the config file.  "
-            "While not fatal, it means your tests will be boring."))
+    def test_04_ingest_no_config_file(self):
+        """ With all missing config files, get an empty ConfigParser """
+        with mock.patch.object(IAMVPNLibraryBase, 'CONFIG_FILE_LOCATIONS',
+                               new=['/tmp/no-such-file.txt']):
+            result = self.library._ingest_config_from_file()
+        self.assertIsInstance(result, configparser.ConfigParser,
+                              'Did not create a config object')
+        self.assertEqual(result.sections(), [],
+                         'Should not have found any configfile sections.')
 
-    def test_sudo_user_edge(self):
+    def test_05_ingest_bad_config_file(self):
+        """ With a bad config file, get an empty ConfigParser """
+        with mock.patch.object(IAMVPNLibraryBase, 'CONFIG_FILE_LOCATIONS',
+                               new=['test/context.py']):
+            result = self.library._ingest_config_from_file()
+        self.assertIsInstance(result, configparser.ConfigParser,
+                              'Did not create a config object')
+        self.assertEqual(result.sections(), [],
+                         'Should not have found any configfile sections.')
+
+    def test_06_ingest_config_from_file(self):
+        """ With an actual config file, get a populated ConfigParser """
+        test_reading_file = '/tmp/test-reader.txt'
+        with open(test_reading_file, 'w') as filepointer:
+            filepointer.write('[aa]\nbb = cc\n')
+        filepointer.close()
+        with mock.patch.object(IAMVPNLibraryBase, 'CONFIG_FILE_LOCATIONS',
+                               new=[test_reading_file]):
+            result = self.library._ingest_config_from_file()
+        os.remove(test_reading_file)
+        self.assertIsInstance(result, configparser.ConfigParser,
+                              'Did not create a config object')
+        self.assertEqual(result.sections(), ['aa'],
+                         'Should have found one configfile section.')
+        self.assertEqual(result.options('aa'), ['bb'],
+                         'Should have found one option.')
+        self.assertEqual(result.get('aa', 'bb'), 'cc',
+                         'Should have read a correct value.')
+
+    def test_07_read_item_config_good(self):
+        """ Read from a config file and get what we expect """
+        with mock.patch.object(self.library.configfile, 'get', return_value='cc'):
+            result = self.library.read_item_from_config(section='testing', key='normal_user',
+                                                        default='foo')
+        self.assertEqual(result, 'cc', 'Could not retrieve a proper value from a configfile')
+
+    def test_08_read_item_config_bad(self):
+        """ Read from a config file and get what we expect """
+        with mock.patch.object(self.library.configfile, 'get',
+                               side_effect=configparser.NoOptionError('option', 'section')):
+            result = self.library.read_item_from_config(section='testing', key='normal_user',
+                                                        default='foo')
+        self.assertEqual(result, 'foo', 'Could not retrieve a default value from a configfile')
+
+    def test_09_sudo_user_edge(self):
         """
             This tests the verify_sudo_user function under poor situations
             These should always return the first argument
@@ -81,7 +162,7 @@ class TestBaseFunctions(unittest.TestCase):
         result = self.library.verify_sudo_user('before', 'su-to-after')
         self.assertEqual(result, 'before')
 
-    def test_sudo_user_normal(self):
+    def test_10_sudo_user_normal(self):
         """
             This tests the verify_sudo_user function under normal conditions
         """

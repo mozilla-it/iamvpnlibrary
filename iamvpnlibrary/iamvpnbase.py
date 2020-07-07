@@ -7,28 +7,20 @@
     This file creates a base object for IAM VPN access information.
 """
 
-import os
 import re
 import collections
 import ast
-import six
 try:
-    # 2.7's module:
-    from ConfigParser import SafeConfigParser as ConfigParser
-    from ConfigParser import NoOptionError, NoSectionError, \
-        InterpolationMissingOptionError
+    import configparser
 except ImportError:  # pragma: no cover
-    # 3's module:
-    from configparser import ConfigParser
-    from configparser import NoOptionError, NoSectionError, \
-        InterpolationMissingOptionError
-
+    from six.moves import configparser
+import six
 
 ParsedACL = collections.namedtuple(
     'ParsedACL', ['rule', 'address', 'portstring', 'description'])
 
 
-class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
+class IAMVPNLibraryBase(object):
     """
         This class is responsible for very little.  Its job is to get a
         config file imported and prepared for any downstream classes.
@@ -47,54 +39,43 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
         """
         self.configfile = self._ingest_config_from_file()
         try:
-            self.fail_open = self.configfile.getboolean('failure',
-                                                        'fail_open')
-        except (NoOptionError, NoSectionError):  # pragma: no cover
+            self.fail_open = self.configfile.getboolean('failure', 'fail_open')
+        except (ValueError, configparser.Error):
             self.fail_open = False
 
         try:
-            self.sudo_users = ast.literal_eval(
-                self.configfile.get('sudo', 'sudo_users'))
-        except:  # pragma: no cover  pylint: disable=bare-except
-            # This bare-except is due to 2.7 limitations in configparser.
-            self.sudo_users = []
-        if not isinstance(self.sudo_users, list):  # pragma: no cover
-            self.sudo_users = []
+            sudo_users = ast.literal_eval(self.configfile.get('sudo', 'sudo_users'))
+        except (ValueError, configparser.Error):
+            sudo_users = []
+        self.sudo_users = sudo_users
 
         try:
             # Note that we do a 'raw' get here because of regexp's
-            self.sudo_username_regexp = self.configfile.get(
-                'sudo', 'sudo_username_regexp', raw=True)
-        except (NoOptionError, NoSectionError):  # pragma: no cover
+            self.sudo_username_regexp = self.configfile.get('sudo', 'sudo_username_regexp',
+                                                            raw=True)
+        except (configparser.Error):
             self.sudo_username_regexp = None
 
-    def _ingest_config_from_file(self, conf_file=None):
+    def _ingest_config_from_file(self):
         """
             pull in config variables from a system file
         """
-        if conf_file is None:
-            conf_file = self.__class__.CONFIG_FILE_LOCATIONS
-        if not isinstance(conf_file, list):
-            conf_file = [conf_file]
-        config = ConfigParser()
-        for filename in conf_file:
-            if os.path.isfile(filename):
-                try:
-                    config.read(filename)
-                    break
-                except:  # pragma: no cover  pylint: disable=bare-except
-                    # This bare-except is due to 2.7
-                    # limitations in configparser.
-                    pass
+        config = configparser.ConfigParser()
+        for filename in self.__class__.CONFIG_FILE_LOCATIONS:
+            try:
+                config.read(filename)
+                break
+            except (configparser.Error):
+                pass
         return config
 
     def read_item_from_config(self, section=None, key=None, default=None):
         """
-            grab items from the post-parsed config
+            grab items from the post-parsed config.  This gets better in py3.
         """
         try:
             return self.configfile.get(section, key)
-        except (NoOptionError, NoSectionError, InterpolationMissingOptionError):
+        except (configparser.Error):
             return default
 
     def verify_sudo_user(self, username_is=None, username_as=None):
