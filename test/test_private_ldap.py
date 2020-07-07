@@ -12,9 +12,9 @@ import unittest
 import sys
 import netaddr
 from netaddr import IPNetwork
+import test.context  # pylint: disable=unused-import
 import iamvpnlibrary.iamvpnldap
 from iamvpnlibrary.iamvpnbase import ParsedACL
-sys.dont_write_bytecode = True
 
 
 class TestLDAPFunctions(unittest.TestCase):

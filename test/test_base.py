@@ -12,6 +12,7 @@
 
 import unittest
 import sys
+import test.context  # pylint: disable=unused-import
 import iamvpnlibrary.iamvpnbase
 try:
     # 2.7's module:
@@ -19,9 +20,6 @@ try:
 except ImportError:  # pragma: no cover
     # 3's module:
     from configparser import ConfigParser
-
-
-sys.dont_write_bytecode = True
 
 
 class TestBaseFunctions(unittest.TestCase):
