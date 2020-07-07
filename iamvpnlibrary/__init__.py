@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
     This file creates the 'public facing' object for IAM VPN
     access information.  It shows very little on its own, instead
@@ -27,4 +26,3 @@ class IAMVPNLibrary(IAMVPNLibraryLDAP):
         So if tests pass, your upstream class implements the things
         we have found that we care about.
     """
-    pass
