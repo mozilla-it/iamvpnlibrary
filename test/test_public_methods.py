@@ -8,12 +8,15 @@
 """
 
 import unittest
-import sys
+import test.context  # pylint: disable=unused-import
 import netaddr
 from netaddr import IPNetwork
-import test.context  # pylint: disable=unused-import
-import iamvpnlibrary
+import mock
+import ldap
+import six
+from iamvpnlibrary import IAMVPNLibrary
 from iamvpnlibrary.iamvpnbase import ParsedACL
+from iamvpnlibrary.iamvpnldap import IAMVPNLibraryLDAP
 
 
 class PublicTestsMixin(object):
@@ -73,12 +76,13 @@ class PublicTestsMixin(object):
         self.assertGreater(len(result), 5,
                            'If this failed, someone has very few acls.')
         addr = result[0]
-        self.assertIsInstance(addr, str,
+        self.assertIsInstance(addr, six.string_types,
                               'Check did not return IP strings')
         try:
             # verify that we're returning parseable strings
             address = netaddr.ip.IPNetwork(addr)
-        except netaddr.core.AddrFormatError:
+        except netaddr.core.AddrFormatError:  # pragma: no cover
+            # since this is a live-data test we may never trigger this.
             self.fail('Non network-address-string returned')
         self.assertGreaterEqual(address.size, 1,
                                 'The address did not have a size?')
@@ -114,7 +118,7 @@ class PublicTestsMixin(object):
         self.assertIsInstance(pacl, ParsedACL,
                               'Did not return a list of ParsedACLs')
         # rule can be empty
-        self.assertIsInstance(pacl.rule, str,
+        self.assertIsInstance(pacl.rule, six.string_types,
                               'The ParsedACL rule was not a string')
         # address is an object and must be there
         self.assertIsInstance(pacl.address, IPNetwork,
@@ -122,10 +126,10 @@ class PublicTestsMixin(object):
         self.assertGreaterEqual(pacl.address.size, 1,
                                 'The ParsedACL address did not have a size?')
         # portstring can be empty
-        self.assertIsInstance(pacl.portstring, str,
+        self.assertIsInstance(pacl.portstring, six.string_types,
                               'The ParsedACL portstring was not a string')
         # description can be empty
-        self.assertIsInstance(pacl.description, str,
+        self.assertIsInstance(pacl.description, six.string_types,
                               'The ParsedACL description was not a string')
 
     def test_03_serverup_bad(self):
@@ -224,11 +228,27 @@ class PublicTestsServerDownMixin(object):
             self.library.fail_open = fail_open_mode
             with self.assertRaises(TypeError):
                 self.library.user_allowed_to_vpn([])
-            result = self.library.user_allowed_to_vpn('dummy_user')
-            self.assertIsInstance(result, bool, 'Check must return a bool')
-            self.assertEqual(result, fail_open_mode,
-                             ('user_allowed_to_vpn must follow '
-                              'the value of fail_open'))
+            with mock.patch.object(self.library, 'is_online', return_value=False):
+                self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
+            with mock.patch.object(self.library, 'is_online', return_value=True):
+                with mock.patch.object(self.library, '_all_vpn_allowed_users',
+                                       side_effect=ldap.SERVER_DOWN):
+                    self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
+            with mock.patch.object(self.library, 'is_online', return_value=True):
+                with mock.patch.object(self.library, '_all_vpn_allowed_users',
+                                       return_value=['a', 'b']):
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           return_value='a'):
+                        self.assertEqual(self.library.user_allowed_to_vpn('x'), True)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           return_value='z'):
+                        self.assertEqual(self.library.user_allowed_to_vpn('x'), False)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.NO_SUCH_OBJECT):
+                        self.assertEqual(self.library.user_allowed_to_vpn('x'), False)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.SERVER_DOWN):
+                        self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
 
     # get_allowed_vpn_ips 02
     def test_02_serverdown(self):
@@ -240,10 +260,19 @@ class PublicTestsServerDownMixin(object):
             self.library.fail_open = fail_open_mode
             with self.assertRaises(TypeError):
                 self.library.get_allowed_vpn_ips([])
-            result = self.library.get_allowed_vpn_ips('dummy_user')
-            self.assertIsInstance(result, list, 'Check must return a list')
-            self.assertEqual(len(result), 0,
-                             'No allowed IPs when the server is off')
+            with mock.patch.object(self.library, 'is_online', return_value=False):
+                self.assertEqual(self.library.get_allowed_vpn_ips('x'), [])
+            with mock.patch.object(self.library, 'is_online', return_value=True):
+                cidr_a = '192.168.20.0/30'
+                cidr_b = '10.8.0.0/16'
+                pacl_a = ParsedACL(rule='a', address=netaddr.ip.IPNetwork(cidr_a),
+                                   portstring='', description='acl a')
+                pacl_b = ParsedACL(rule='a', address=netaddr.ip.IPNetwork(cidr_b),
+                                   portstring='', description='acl b')
+                with mock.patch.object(self.library, 'get_allowed_vpn_acls',
+                                       return_value=[pacl_a, pacl_b]):
+                    result = self.library.get_allowed_vpn_ips('dummy_user')
+                    self.assertEqual(result, [cidr_a, cidr_b])
 
     # get_allowed_vpn_acls 03
     def test_03_serverdown(self):
@@ -253,11 +282,20 @@ class PublicTestsServerDownMixin(object):
         """
         for fail_open_mode in [True, False]:
             self.library.fail_open = fail_open_mode
-            result = self.library.get_allowed_vpn_acls('dummy_user')
-            self.assertIsInstance(result, list,
-                                  'Did not return a list')
-            self.assertEqual(len(result), 0,
-                             'No allowed ACLs when the server is off')
+            with self.assertRaises(TypeError):
+                self.library.get_allowed_vpn_acls([])
+            with mock.patch.object(self.library, 'is_online', return_value=False):
+                self.assertEqual(self.library.get_allowed_vpn_acls('x'), [])
+            with mock.patch.object(self.library, 'is_online', return_value=True):
+                with mock.patch.object(self.library, '_sanitized_vpn_acls_for_user',
+                                       side_effect=ldap.NO_SUCH_OBJECT):
+                    self.assertEqual(self.library.get_allowed_vpn_acls('x'), [])
+                with mock.patch.object(self.library, '_sanitized_vpn_acls_for_user',
+                                       side_effect=ldap.SERVER_DOWN):
+                    self.assertEqual(self.library.get_allowed_vpn_acls('x'), [])
+                with mock.patch.object(self.library, '_sanitized_vpn_acls_for_user',
+                                       return_value=['a', 'b']):
+                    self.assertEqual(self.library.get_allowed_vpn_acls('x'), ['a', 'b'])
 
     # does_user_require_vpn_mfa 04
     def test_04_serverdown(self):
@@ -269,12 +307,24 @@ class PublicTestsServerDownMixin(object):
             self.library.fail_open = fail_open_mode
             with self.assertRaises(TypeError):
                 self.library.does_user_require_vpn_mfa([])
-            result = self.library.does_user_require_vpn_mfa('dummy_user')
-            self.assertIsInstance(result, bool, 'Check must return a bool')
-            # Weird logic reminder, a fake user must be made to MFA.
-            self.assertEqual(result, fail_open_mode,
-                             ('does_user_require_vpn_mfa must track '
-                              'to fail_open'))
+            with mock.patch.object(self.library, 'is_online', return_value=False):
+                self.assertEqual(self.library.does_user_require_vpn_mfa('x'), fail_open_mode)
+            with mock.patch.object(self.library, 'is_online', return_value=True):
+                with mock.patch.object(self.library, '_vpn_mfa_exempt_users',
+                                       return_value=['a', 'b']):
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           return_value='a'):
+                        self.assertEqual(self.library.does_user_require_vpn_mfa('x'), False)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           return_value='z'):
+                        self.assertEqual(self.library.does_user_require_vpn_mfa('x'), True)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.NO_SUCH_OBJECT):
+                        self.assertEqual(self.library.does_user_require_vpn_mfa('x'), True)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.SERVER_DOWN):
+                        self.assertEqual(self.library.does_user_require_vpn_mfa('x'),
+                                         fail_open_mode)
 
     # non_mfa_vpn_authentication 05
     def test_05_serverdown(self):
@@ -288,12 +338,26 @@ class PublicTestsServerDownMixin(object):
                 self.library.non_mfa_vpn_authentication('foo', [])
             with self.assertRaises(TypeError):
                 self.library.non_mfa_vpn_authentication([], 'foo')
-            result = self.library.non_mfa_vpn_authentication(
-                'dummy_user', 'user_obviously_has_no_pass')
-            self.assertIsInstance(result, bool, 'Check must return a bool')
-            self.assertEqual(result, fail_open_mode,
-                             ('non_mfa_vpn_authentication must track '
-                              'to fail_open'))
+            with mock.patch.object(self.library, 'is_online', return_value=False):
+                self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'), fail_open_mode)
+            with mock.patch.object(self.library, 'is_online', return_value=True):
+                with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                       side_effect=ldap.NO_SUCH_OBJECT):
+                    self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'), False)
+            with mock.patch.object(self.library, 'is_online', return_value=True):
+                with mock.patch.object(self.library, '_get_user_dn_by_username', return_value='a'):
+                    with mock.patch.object(self.library, '_create_ldap_connection',
+                                           side_effect=ldap.SERVER_DOWN):
+                        self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'),
+                                         fail_open_mode)
+                    with mock.patch.object(self.library, '_create_ldap_connection',
+                                           side_effect=ldap.LDAPError):
+                        self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'),
+                                         False)
+                    with mock.patch.object(self.library, '_create_ldap_connection',
+                                           return_value=None):
+                        self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'),
+                                         True)
 
 
 # When there's a future authentication class, you'll want this:
@@ -318,10 +382,14 @@ class TestPubFuncsLDAPup(PublicTestsMixin, unittest.TestCase):
             # idea why it would, so, catch all exceptions deliberately.
             # Keep in mind that we don't want to detail LDAP-specific
             # reasons here.  "It failed" is enough for testing.
-            self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
+            self.library = IAMVPNLibraryLDAP()
         except Exception as err:  # pragma: no cover  pylint: disable=broad-except
             self.fail(err)
         self.core_setup()
+
+    def tearDown(self):
+        """ Clear the test rig """
+        self.library = None
 
 
 class TestPubFuncsLDAPdown(PublicTestsServerDownMixin, unittest.TestCase):
@@ -339,10 +407,14 @@ class TestPubFuncsLDAPdown(PublicTestsServerDownMixin, unittest.TestCase):
             # idea why it would, so, catch all exceptions deliberately.
             # Keep in mind that we don't want to detail LDAP-specific
             # reasons here.  "It failed" is enough for testing.
-            self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
+            self.library = IAMVPNLibraryLDAP()
         except Exception as err:  # pragma: no cover  pylint: disable=broad-except
             self.fail(err)
         self.library.conn.unbind_s()
+
+    def tearDown(self):
+        """ Clear the test rig """
+        self.library = None
 
 
 class TestPubFuncsMAIN(PublicTestsMixin, unittest.TestCase):
@@ -351,5 +423,9 @@ class TestPubFuncsMAIN(PublicTestsMixin, unittest.TestCase):
     """
     def setUp(self):
         """ Prepare test rig """
-        self.library = iamvpnlibrary.IAMVPNLibrary()
+        self.library = IAMVPNLibrary()
         self.core_setup()
+
+    def tearDown(self):
+        """ Clear the test rig """
+        self.library = None
