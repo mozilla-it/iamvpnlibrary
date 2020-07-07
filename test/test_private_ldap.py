@@ -4,16 +4,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # Copyright (c) 2018 Mozilla Corporation
 """ LDAP unit test script """
-# This test file is all about calling protected methods on the ldap
-# file, so, we tell pylint that we're cool with it:
-# pylint: disable=protected-access
 
 import unittest
-import sys
-import netaddr
-from netaddr import IPNetwork
 import test.context  # pylint: disable=unused-import
-import iamvpnlibrary.iamvpnldap
+from netaddr import IPNetwork
+import mock
+import ldap
+import six
+from iamvpnlibrary.iamvpnldap import IAMVPNLibraryLDAP
 from iamvpnlibrary.iamvpnbase import ParsedACL
 
 
@@ -27,75 +25,32 @@ class TestLDAPFunctions(unittest.TestCase):
     """
     def setUp(self):
         """ Preparing test rig """
-        self.library = iamvpnlibrary.iamvpnldap.IAMVPNLibraryLDAP()
-        # This effectively tests init, _validate_config_file,
-        # and _create_ldap_connection.  You're not going anywhere
-        # much without those.
+        self.library = IAMVPNLibraryLDAP()
         self.normal_user = self.library.read_item_from_config(
             section='testing', key='normal_user', default=None)
 
-    def test_acl_parsing(self):
-        """
-            This tests for various cases of ACL strings that we get from
-            the ldap server, and verifies that they break into chunks that
-            we expect.
-        """
-        with self.assertRaises(TypeError):
-            self.library._split_vpn_acl_string([])
-        self.assertEqual(
-            self.library._split_vpn_acl_string('1.1.1.1'),
-            ParsedACL(rule='', address=IPNetwork('1.1.1.1/32'),
-                      portstring='', description=''),
-            'Simple IPv4 host parsing failed')
-        self.assertEqual(
-            self.library._split_vpn_acl_string('1.1.1.1/30'),
-            ParsedACL(rule='', address=IPNetwork('1.1.1.1/30'),
-                      portstring='', description=''),
-            'Simple IPv4 CIDR parsing failed')
-        self.assertEqual(
-            self.library._split_vpn_acl_string('1.1.1.1:443'),
-            ParsedACL(rule='', address=IPNetwork('1.1.1.1/32'),
-                      portstring='443', description=''),
-            'IPv4 host:port parsing failed')
-        self.assertEqual(
-            self.library._split_vpn_acl_string('dead::beef'),
-            ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
-                      portstring='', description=''),
-            'Simple abbreviated IPv6 host parsing failed')
-        self.assertEqual(
-            self.library._split_vpn_acl_string(
-                'fdf2:c3cc:8c71:c263:dead:beef:dead:beef'),
-            ParsedACL(rule='',
-                      address=IPNetwork(
-                          'fdf2:c3cc:8c71:c263:dead:beef:dead:beef/128'),
-                      portstring='', description=''),
-            'Simple nonabbreviated IPv6 host parsing failed')
-        self.assertEqual(
-            self.library._split_vpn_acl_string('dead::beef/64'),
-            ParsedACL(rule='', address=IPNetwork('dead::beef/64'),
-                      portstring='', description=''),
-            'Simple IPv6 CIDR parsing failed')
-        self.assertEqual(
-            self.library._split_vpn_acl_string('[dead::beef]:443'),
-            ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
-                      portstring='443', description=''),
-            'IPv6 host:port parsing failed')
-        self.assertEqual(
-            self.library._split_vpn_acl_string('hostname.domain.org'),
-            ParsedACL(rule='', address='hostname.domain.org',
-                      portstring='', description='hostname.domain.org'),
-            'hostname parsing failed')
-        with self.assertRaises(netaddr.core.AddrFormatError):
-            # Bogus IPv4 address:port must be fatal
-            self.library._split_vpn_acl_string('1.1.1.1111:443')
-        with self.assertRaises(netaddr.core.AddrFormatError):
-            # Bogus IPv4 address must be fatal
-            self.library._split_vpn_acl_string('1.1.1.1111')
+    def tearDown(self):
+        """ Clear the test rig """
+        self.library = None
+
+    def test_00_is_online(self):
+        """ exercise is_online function """
+        with mock.patch.object(self.library.conn, 'result', return_value=None):
+            self.assertTrue(self.library.is_online())
+        with mock.patch.object(self.library.conn, 'result', side_effect=ldap.LDAPError):
+            self.assertFalse(self.library.is_online())
 
     def test_get_all_enabled_users(self):
         """
             Testing that we get back a reasonably sized set of user DNs
         """
+        # First, simulation tests:
+        with mock.patch.object(self.library.conn, 'search_s',
+                               return_value=[('mail=dn3', {}), ('mail=dn9', {})]):
+            result = self.library._get_all_enabled_users()
+            self.assertEqual(result, set(['mail=dn3', 'mail=dn9']))
+
+        # Now, test it live:
         result = self.library._get_all_enabled_users()
         self.assertIsInstance(result, set,
                               'Must return a set')
@@ -103,15 +58,20 @@ class TestLDAPFunctions(unittest.TestCase):
         # Keep in mind what will happen if this happens at RUN time.
         self.assertGreater(len(result), 100,
                            'We expect a sizeable list of enabled users')
-        self.assertRegexpMatches(
-            result.pop(), ','+self.library.config['ldap_base']+'$',
-            ('A random user from the enabled user set does not match '
-             'the ldap base of the config.  Bad search?'))
+        self.assertIn(','+self.library.config['ldap_base'], result.pop(),
+                      ('A random user from the set does not match '
+                       'the ldap base of the config.  Bad search?'))
 
     def test_get_acl_allowed_users(self):
         """
             Testing that we get back a reasonably sized set of user DNs
         """
+        # First, simulation tests:
+        with mock.patch.object(self.library.conn, 'search_s',
+                               return_value=[('cn=vpn_allowed_folks', {'member': ['a', 'b']})]):
+            result = self.library._get_acl_allowed_users()
+            self.assertEqual(result, set(['a', 'b']))
+        # Now, test it live:
         result = self.library._get_acl_allowed_users()
         self.assertIsInstance(result, set,
                               'Must return a set')
@@ -119,15 +79,22 @@ class TestLDAPFunctions(unittest.TestCase):
         # Keep in mind what will happen if this happens at RUN time.
         self.assertGreater(len(result), 100,
                            'We expect a sizeable list of allowed users')
-        self.assertRegexpMatches(
-            result.pop(), ','+self.library.config['ldap_base']+'$',
-            ('A random user from the allowed user set does not match '
-             'the ldap base of the config.  Bad search?'))
+        self.assertIn(','+self.library.config['ldap_base'], result.pop(),
+                      ('A random user from the set does not match '
+                       'the ldap base of the config.  Bad search?'))
 
     def test_all_vpn_allowed_users(self):
         """
             Testing that we get back a reasonably sized set of user DNs
         """
+        # First, simulation tests:
+        with mock.patch.object(self.library, '_get_all_enabled_users',
+                               return_value=set(['a', 'b', 'c'])), \
+                mock.patch.object(self.library, '_get_acl_allowed_users',
+                                  return_value=set(['b', 'c', 'd'])):
+            result = self.library._all_vpn_allowed_users()
+            self.assertEqual(result, set(['b', 'c']))
+        # Now, test it live:
         result = self.library._all_vpn_allowed_users()
         self.assertIsInstance(result, set,
                               'Must return a set')
@@ -135,10 +102,9 @@ class TestLDAPFunctions(unittest.TestCase):
         # Keep in mind what will happen if this happens at RUN time.
         self.assertGreater(len(result), 100,
                            'We expect a sizeable list of allowed users')
-        self.assertRegexpMatches(
-            result.pop(), ','+self.library.config['ldap_base']+'$',
-            ('A random user from the allowed user set does not match '
-             'the ldap base of the config.  Bad search?'))
+        self.assertIn(','+self.library.config['ldap_base'], result.pop(),
+                      ('A random user from the set does not match '
+                       'the ldap base of the config.  Bad search?'))
 
     def test_fetch_vpn_acls_for_user(self):
         """
@@ -146,6 +112,24 @@ class TestLDAPFunctions(unittest.TestCase):
         """
         with self.assertRaises(TypeError):
             self.library._fetch_vpn_acls_for_user([])
+        # First, simulation tests:
+        # This is going to just be an assert-how-you're-called mock
+        # because the basis of this function is "return a thing from ldap"
+        with mock.patch.object(self.library.conn, 'search_s') as mock_ldap, \
+                mock.patch.object(self.library, '_get_user_dn_by_username', return_value='ddn'), \
+                mock.patch.dict(self.library.config,
+                                {'ldap_groups_base': 'ou=groupz,dc=myplace',
+                                 'ldap_vpn_acls_all_acls_filter':
+                                     '(&(objectClass=GroupOfNames)(%(rdn_attribute)s=vpn_*))',
+                                 'ldap_vpn_acls_attribute_user': 'uzer',
+                                 'ldap_vpn_acls_rdn_attribute': 'cn',
+                                 'ldap_vpn_acls_attribute_host': 'hostattr'}):
+            self.library._fetch_vpn_acls_for_user('dude')
+            expect_filter = '(&(&(objectClass=GroupOfNames)(%(rdn_attribute)s=vpn_*))(uzer=ddn))'
+            mock_ldap.assert_called_with('ou=groupz,dc=myplace', ldap.SCOPE_SUBTREE,
+                                         filterstr=expect_filter,
+                                         attrlist=['cn', 'hostattr'])
+        # Now, test it live:
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library._fetch_vpn_acls_for_user(self.normal_user)
@@ -161,7 +145,7 @@ class TestLDAPFunctions(unittest.TestCase):
         # the LDAP format changed.  Most of this you don't need to stare at.
         self.assertIsInstance(acl, tuple,
                               'Did not get an LDAP ACL tuple')
-        self.assertIsInstance(acl[0], str,
+        self.assertIsInstance(acl[0], six.string_types,
                               ('The supposed LDAP ACL tuple did not have '
                                'a DN string as arg 0'))
         self.assertIsInstance(acl[1], dict,
@@ -178,9 +162,6 @@ class TestLDAPFunctions(unittest.TestCase):
         self.assertGreater(len(_rdn), 0,
                            ('The RDN in the attr dict of the '
                             'LDAP acl was empty'))
-        self.assertIsInstance(_rdn[0], str,
-                              ('The RDN in the attr dict of the '
-                               'LDAP acl was not a string'))
 
         self.assertIn(self.library.config['ldap_vpn_acls_attribute_host'],
                       acl[1],
@@ -192,9 +173,6 @@ class TestLDAPFunctions(unittest.TestCase):
         self.assertGreater(len(_acl), 0,
                            ('The ACLs in the attr dict of the '
                             'LDAP acl was empty'))
-        self.assertIsInstance(_rdn[0], str,
-                              ('The ACLs in the attr dict of the '
-                               'LDAP acl was not a string'))
 
     def test_sanitized_vpn_acls(self):
         """
@@ -203,6 +181,49 @@ class TestLDAPFunctions(unittest.TestCase):
         """
         with self.assertRaises(TypeError):
             self.library._sanitized_vpn_acls_for_user([])
+        # First, simulation tests:
+        with mock.patch.dict(self.library.config, {'ldap_vpn_acls_rdn_attribute': 'cn',
+                                                   'ldap_vpn_acls_attribute_host': 'hostattr'}):
+            # User with no ACLs:
+            with mock.patch.object(self.library, '_fetch_vpn_acls_for_user',
+                                   return_value=[]):
+                result = self.library._sanitized_vpn_acls_for_user('anyone')
+                self.assertEqual(result, [])
+            # User with empty ACLs:
+            with mock.patch.object(self.library, '_fetch_vpn_acls_for_user',
+                                   return_value=[('_cn', {})]):
+                result = self.library._sanitized_vpn_acls_for_user('anyone')
+                self.assertEqual(result, [])
+            # User with a normal ACL:
+            with mock.patch.object(self.library, '_fetch_vpn_acls_for_user',
+                                   return_value=[('_cn', {'cn': ['vpn_something'],
+                                                          'hostattr': ['1.1.1.1 # foo.m.c']})]):
+                result = self.library._sanitized_vpn_acls_for_user('anyone')
+                self.assertEqual(result, [ParsedACL(rule='vpn_something',
+                                                    address=IPNetwork('1.1.1.1/32'),
+                                                    portstring='', description='foo.m.c')])
+            # User with a bogus ACL:
+            with mock.patch.object(self.library, '_fetch_vpn_acls_for_user',
+                                   return_value=[('_cn', {'cn': ['vpn_something'],
+                                                          'hostattr': ['999.999.999.999']})]):
+                result = self.library._sanitized_vpn_acls_for_user('anyone')
+                self.assertEqual(result, [])
+            # User with a hostname ACL:
+            with mock.patch.object(self.library, '_fetch_vpn_acls_for_user',
+                                   return_value=[('_cn', {'cn': ['vpn_lh'],
+                                                          'hostattr': ['localhost # lokal']})]):
+                result = self.library._sanitized_vpn_acls_for_user('anyone')
+                self.assertEqual(result, [ParsedACL(rule='vpn_lh',
+                                                    address=IPNetwork('127.0.0.1/32'),
+                                                    portstring='', description='lokal')])
+            # User with a null hostname ACL somehow:
+            with mock.patch.object(self.library, '_fetch_vpn_acls_for_user',
+                                   return_value=[('_cn', {'cn': ['vpn_badstr'],
+                                                          'hostattr': ['']})]):
+                result = self.library._sanitized_vpn_acls_for_user('anyone')
+                self.assertEqual(result, [])
+
+        # Now, test it live:
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library._sanitized_vpn_acls_for_user(self.normal_user)
@@ -214,7 +235,7 @@ class TestLDAPFunctions(unittest.TestCase):
         self.assertIsInstance(pacl, ParsedACL,
                               'Did not return a list of ParsedACLs')
         # rule can be empty
-        self.assertIsInstance(pacl.rule, str,
+        self.assertIsInstance(pacl.rule, six.string_types,
                               'The ParsedACL rule was not a string')
         # address is an object and must be there
         self.assertIsInstance(pacl.address, IPNetwork,
@@ -222,10 +243,10 @@ class TestLDAPFunctions(unittest.TestCase):
         self.assertGreaterEqual(pacl.address.size, 1,
                                 'The ParsedACL address did not have a size?')
         # portstring can be empty
-        self.assertIsInstance(pacl.portstring, str,
+        self.assertIsInstance(pacl.portstring, six.string_types,
                               'The ParsedACL portstring was not a string')
         # description can be empty
-        self.assertIsInstance(pacl.description, str,
+        self.assertIsInstance(pacl.description, six.string_types,
                               'The ParsedACL description was not a string')
 
     def test_vpn_mfa_exempt_users(self):
@@ -233,6 +254,12 @@ class TestLDAPFunctions(unittest.TestCase):
             Testing that we get the set of user DNs who are exempt from
             having to MFA
         """
+        # First, simulation tests:
+        with mock.patch.object(self.library.conn, 'search_s',
+                               return_value=[('cn=vpn_allowed_folks', {'member': ['r', 'w']})]):
+            result = self.library._vpn_mfa_exempt_users()
+            self.assertEqual(result, set(['r', 'w']))
+        # Now, test it live:
         result = self.library._vpn_mfa_exempt_users()
         self.assertIsInstance(result, set,
                               'Must return a set')
@@ -244,10 +271,9 @@ class TestLDAPFunctions(unittest.TestCase):
             len(result), 10,
             ('If this failed, check the group size. '
              'It should be small-ish, but this test may be too small.'))
-        self.assertRegexpMatches(
-            result.pop(), ','+self.library.config['ldap_base']+'$',
-            ('A random user from the set does not match '
-             'the ldap base of the config.  Bad search?'))
+        self.assertIn(','+self.library.config['ldap_base'], result.pop(),
+                      ('A random user from the set does not match '
+                       'the ldap base of the config.  Bad search?'))
 
     def test_get_user_dn_by_username(self):
         """
@@ -255,12 +281,24 @@ class TestLDAPFunctions(unittest.TestCase):
         """
         with self.assertRaises(TypeError):
             self.library._get_user_dn_by_username([])
+        # First, simulation tests:
+        with self.assertRaises(ldap.NO_SUCH_OBJECT), \
+                mock.patch.object(self.library.conn, 'search_s', return_value=[]):
+            self.library._get_user_dn_by_username('somename')
+        with self.assertRaises(ldap.LDAPError), \
+                mock.patch.object(self.library.conn, 'search_s',
+                                  return_value=[('dnX', {}), ('dnY', {})]):
+            self.library._get_user_dn_by_username('somename')
+        with mock.patch.object(self.library.conn, 'search_s',
+                               return_value=[('dn1', {})]):
+            result = self.library._get_user_dn_by_username('somename')
+            self.assertEqual(result, 'dn1')
+        # Now, test it live:
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library._get_user_dn_by_username(self.normal_user)
-        self.assertIsInstance(result, str,
+        self.assertIsInstance(result, six.string_types,
                               'search for username must return a DN string')
-        self.assertRegexpMatches(
-            result, ','+self.library.config['ldap_base']+'$',
-            ('A random user from the set does not match '
-             'the ldap base of the config.  Bad search?'))
+        self.assertIn(','+self.library.config['ldap_base'], result,
+                      ('A random user from the set does not match '
+                       'the ldap base of the config.  Bad search?'))
