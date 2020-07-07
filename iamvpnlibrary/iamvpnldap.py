@@ -159,7 +159,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             #  If there's no user, that's a problem
             raise ldap.NO_SUCH_OBJECT(input_username,
                                       'Could not find any entry in LDAP')
-        elif len(res) > 1:
+        if len(res) > 1:
             # If there's more than one user with this email, that's bad.
             # Fail out here out of an abundance of caution.
             raise ldap.LDAPError(input_username,
@@ -186,7 +186,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                 '(&' + self.config.get('ldap_user_enabled_user_filter') +
                 '(' + self.config.get('ldap_user_mail_attribute') + '=*)' +
                 ')'),
-            attrlist=['dn'])
+            attrlist=[])
         for user_dn, _attr in res:
             users.add(user_dn)
         return users
@@ -201,13 +201,17 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
         users = set()
         sought_attr = self.config.get('ldap_vpn_acls_attribute_user')
+        if not isinstance(sought_attr, str):  # pragma: no cover
+            sought_attr = sought_attr.encode('utf-8')
         res = self.conn.search_s(
             self.config.get('ldap_groups_base'), ldap.SCOPE_SUBTREE,
             filterstr=self.config.get('ldap_vpn_acls_minimum_group_filter'),
-            attrlist=[sought_attr.encode('utf-8')])
+            attrlist=[sought_attr])
         for _dn, attr in res:
             if sought_attr in attr:
                 for userdn in attr[sought_attr]:
+                    if isinstance(userdn, bytes):
+                        userdn = userdn.decode('utf-8')
                     users.add(userdn)
         return users
 
@@ -221,13 +225,17 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
         users = set()
         sought_attr = self.config.get('ldap_vpn_acls_attribute_user')
+        if not isinstance(sought_attr, str):  # pragma: no cover
+            sought_attr = sought_attr.encode('utf-8')
         res = self.conn.search_s(
             self.config.get('ldap_groups_base'), ldap.SCOPE_SUBTREE,
             filterstr=self.config.get('ldap_vpn_acls_mfa_exempt_group_filter'),
-            attrlist=[sought_attr.encode('utf-8')])
+            attrlist=[sought_attr])
         for _dn, attr in res:
             if sought_attr in attr:
                 for userdn in attr[sought_attr]:
+                    if isinstance(userdn, bytes):
+                        userdn = userdn.decode('utf-8')
                     users.add(userdn)
         return users
 
@@ -354,14 +362,19 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         if not isinstance(input_email, six.string_types):
             raise TypeError(input_email, 'Argument must be a string')
         user_dn = self._get_user_dn_by_username(input_email)
+        rdn_attr = self.config.get('ldap_vpn_acls_rdn_attribute')
+        if not isinstance(rdn_attr, str):  # pragma: no cover
+            rdn_attr = rdn_attr.encode('utf-8')
+        host_attr = self.config.get('ldap_vpn_acls_attribute_host')
+        if not isinstance(host_attr, str):  # pragma: no cover
+            host_attr = host_attr.encode('utf-8')
         res = self.conn.search_s(
             self.config.get('ldap_groups_base'), ldap.SCOPE_SUBTREE,
             filterstr=(
                 '(&' + self.config.get('ldap_vpn_acls_all_acls_filter') +
                 '(' + self.config.get('ldap_vpn_acls_attribute_user') +
                 '=' + user_dn + ')' + ')'),
-            attrlist=[self.config.get('ldap_vpn_acls_rdn_attribute').encode('utf-8'),
-                      self.config.get('ldap_vpn_acls_attribute_host').encode('utf-8')],
+            attrlist=[rdn_attr, host_attr],
             )
         # res should be:
         # [
@@ -372,7 +385,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         #  ]
         return res
 
-    def _sanitized_vpn_acls_for_user(self, input_email):
+    def _sanitized_vpn_acls_for_user(self, input_email):  # pylint: disable=too-many-branches
         """
             Find what ACLs a person is entitled to.
             input_email: "user@company.com"
@@ -399,7 +412,11 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # because it's the rule RDN, and thus will be present
             # and unique.
             rulename = attrs_dict[self.config.get('ldap_vpn_acls_rdn_attribute')][0]
+            if isinstance(rulename, bytes):
+                rulename = rulename.decode('utf-8')
             for host_entry in attrs_dict[self.config.get('ldap_vpn_acls_attribute_host')]:
+                if isinstance(host_entry, bytes):
+                    host_entry = host_entry.decode('utf-8')
                 try:
                     raw_acl_object = self._split_vpn_acl_string(host_entry)
                 except netaddr.core.AddrFormatError:
@@ -548,7 +565,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             input_email: "user@company.com"
             return: ['cidr1/32', 'cidr2/30', ...]
 
-            Outside user: get_user_routes
+            Outside user: openvpn-client-connect
         """
         if not isinstance(input_email, six.string_types):
             raise TypeError(input_email, 'Argument must be a string')
