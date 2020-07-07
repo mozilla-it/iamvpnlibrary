@@ -3,16 +3,27 @@ PACKAGE := iamvpnlibrary
 .PHONY: all test coverage coveragereport pep8 pylint rpm clean
 TEST_FLAGS_FOR_SUITE := -m unittest discover -f -s test
 
+COVERAGE2 = $(shell which coverage 2>/dev/null)
+COVERAGE3 = $(shell which coverage-3 2>/dev/null)
+ifneq (, $(COVERAGE2))
+  COVERAGE = $(COVERAGE2)
+endif
+ifneq (, $(COVERAGE3))
+  COVERAGE = $(COVERAGE3)
+endif
+
 all: test
 
 test:
 	python -B $(TEST_FLAGS_FOR_SUITE)
 
 coverage:
-	coverage run $(TEST_FLAGS_FOR_SUITE)
+	$(COVERAGE) run $(TEST_FLAGS_FOR_SUITE)
+	@rm -rf test/__pycache__
+	@rm -f $(PACKAGE)/*.pyc test/*.pyc
 
 coveragereport:
-	coverage report -m $(PACKAGE)/*.py test/*.py
+	$(COVERAGE) report -m $(PACKAGE)/*.py test/*.py
 
 pep8:
 	@find ./* `git submodule --quiet foreach 'echo -n "-path ./$$path -prune -o "'` -type f -name '*.py' -exec pep8 --show-source --max-line-length=100 {} \;
@@ -28,4 +39,5 @@ rpm:
 
 clean:
 	rm -f $(PACKAGE)/*.pyc test/*.pyc
+	rm -rf test/__pycache__
 	rm -rf build $(PACKAGE).egg-info
