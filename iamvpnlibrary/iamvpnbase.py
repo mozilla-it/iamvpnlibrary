@@ -64,7 +64,7 @@ class IAMVPNLibraryBase(object):  # pylint: disable=too-few-public-methods
         try:
             # Note that we do a 'raw' get here because of regexp's
             self.sudo_username_regexp = self.configfile.get(
-                'sudo', 'sudo_username_regexp', True)
+                'sudo', 'sudo_username_regexp', raw=True)
         except (NoOptionError, NoSectionError):  # pragma: no cover
             self.sudo_username_regexp = None
 
