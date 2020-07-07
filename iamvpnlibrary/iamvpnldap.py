@@ -78,47 +78,35 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
         config = {}
 
-        for (config_key, required, tup) in [
-                ['ldap_url', True,
-                 ('ldap-bind', 'url', None)],
-                ['ldap_bind_dn', True,
-                 ('ldap-bind', 'bind_dn', None)],
-                ['ldap_bind_password', True,
-                 ('ldap-bind', 'bind_password', None)],
-                ['ldap_base', True,
-                 ('ldap-bind', 'base', None)],
-                ['ldap_groups_base', True,
-                 ('ldap-bind', 'groups_base', None)],
-                ['ldap_user_mail_attribute', True,
+        for (config_key, tup) in [
+                ['ldap_url', ('ldap-bind', 'url', None)],
+                ['ldap_bind_dn', ('ldap-bind', 'bind_dn', None)],
+                ['ldap_bind_password', ('ldap-bind', 'bind_password', None)],
+                ['ldap_base', ('ldap-bind', 'base', None)],
+                ['ldap_groups_base', ('ldap-bind', 'groups_base', None)],
+                ['ldap_user_mail_attribute',
                  ('ldap-schema-users', 'mail_attribute', 'mail')],
-                ['ldap_user_enabled_user_filter', True,
+                ['ldap_user_enabled_user_filter',
                  ('ldap-schema-users', 'enabled_user_filter', None)],
                 # LDAP ACLs are almost guaranteed to be groupOfNames
                 # Those require 'cn' and 'member'.  So we can spot those
                 # as supremely likely defaults.
-                ['ldap_vpn_acls_rdn_attribute', True,
-                 ('ldap-schema-vpn-acls',
-                  'rdn_attribute', 'cn')],
-                ['ldap_vpn_acls_attribute_user', True,
-                 ('ldap-schema-vpn-acls',
-                  'attribute_user', 'member')],
-                ['ldap_vpn_acls_attribute_host', True,
-                 ('ldap-schema-vpn-acls',
-                  'attribute_host', 'ipHostNumber')],
-                ['ldap_vpn_acls_all_acls_filter', True,
-                 ('ldap-schema-vpn-acls',
-                  'all_acls_filter', None)],
-                ['ldap_vpn_acls_minimum_group_filter', True,
-                 ('ldap-schema-vpn-acls',
-                  'minimum_group_filter', None)],
-                ['ldap_vpn_acls_mfa_exempt_group_filter', True,
-                 ('ldap-schema-vpn-acls',
-                  'mfa_exempt_group_filter', None)]]:
+                ['ldap_vpn_acls_rdn_attribute',
+                 ('ldap-schema-vpn-acls', 'rdn_attribute', 'cn')],
+                ['ldap_vpn_acls_attribute_user',
+                 ('ldap-schema-vpn-acls', 'attribute_user', 'member')],
+                ['ldap_vpn_acls_attribute_host',
+                 ('ldap-schema-vpn-acls', 'attribute_host', 'ipHostNumber')],
+                ['ldap_vpn_acls_all_acls_filter',
+                 ('ldap-schema-vpn-acls', 'all_acls_filter', None)],
+                ['ldap_vpn_acls_minimum_group_filter',
+                 ('ldap-schema-vpn-acls', 'minimum_group_filter', None)],
+                ['ldap_vpn_acls_mfa_exempt_group_filter',
+                 ('ldap-schema-vpn-acls', 'mfa_exempt_group_filter', None)]]:
             value = self.read_item_from_config(*tup)
-            if required and value is None:
+            if value is None:
                 raise ValueError(
-                    'Unable to locate config item {0} / {1}'.format(
-                        tup[0], tup[1]))
+                    'Unable to locate config item {0} / {1}'.format(tup[0], tup[1]))
             config[config_key] = value
 
         return config
