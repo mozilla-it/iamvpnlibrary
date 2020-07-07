@@ -627,7 +627,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             self._create_ldap_connection(
                 self.config.get('ldap_url'), user_dn, input_password)
             return True
-        except ldap.LDAPError:
-            return False
         except ldap.SERVER_DOWN:
             return self.fail_open
+        except ldap.LDAPError:
+            return False
