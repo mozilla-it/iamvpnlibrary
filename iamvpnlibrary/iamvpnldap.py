@@ -159,7 +159,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             #  If there's no user, that's a problem
             raise ldap.NO_SUCH_OBJECT(input_username,
                                       'Could not find any entry in LDAP')
-        elif len(res) > 1:  # pragma: no cover
+        elif len(res) > 1:
             # If there's more than one user with this email, that's bad.
             # Fail out here out of an abundance of caution.
             raise ldap.LDAPError(input_username,
@@ -204,7 +204,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         res = self.conn.search_s(
             self.config.get('ldap_groups_base'), ldap.SCOPE_SUBTREE,
             filterstr=self.config.get('ldap_vpn_acls_minimum_group_filter'),
-            attrlist=[sought_attr])
+            attrlist=[sought_attr.encode('utf-8')])
         for _dn, attr in res:
             if sought_attr in attr:
                 for userdn in attr[sought_attr]:
@@ -224,7 +224,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         res = self.conn.search_s(
             self.config.get('ldap_groups_base'), ldap.SCOPE_SUBTREE,
             filterstr=self.config.get('ldap_vpn_acls_mfa_exempt_group_filter'),
-            attrlist=[sought_attr])
+            attrlist=[sought_attr.encode('utf-8')])
         for _dn, attr in res:
             if sought_attr in attr:
                 for userdn in attr[sought_attr]:
@@ -305,7 +305,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # We form the 'proper' error to raise, because in the future
             # this is what will happen when netaddr is patched.
             error_to_raise = netaddr.core.AddrFormatError('invalid ACL entry: %r!' % test_string)
-        except netaddr.core.AddrFormatError as errcode:  # pragma: no cover
+        except netaddr.core.AddrFormatError as errcode:
             error_to_raise = errcode
         else:
             # At this point, time to return.  Populate a ParsedACL.
@@ -360,8 +360,8 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                 '(&' + self.config.get('ldap_vpn_acls_all_acls_filter') +
                 '(' + self.config.get('ldap_vpn_acls_attribute_user') +
                 '=' + user_dn + ')' + ')'),
-            attrlist=[self.config.get('ldap_vpn_acls_rdn_attribute'),
-                      self.config.get('ldap_vpn_acls_attribute_host')],
+            attrlist=[self.config.get('ldap_vpn_acls_rdn_attribute').encode('utf-8'),
+                      self.config.get('ldap_vpn_acls_attribute_host').encode('utf-8')],
             )
         # res should be:
         # [
@@ -398,13 +398,11 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # The rulename is the 'cn'.  The [0] will always work
             # because it's the rule RDN, and thus will be present
             # and unique.
-            rulename = attrs_dict[
-                self.config.get('ldap_vpn_acls_rdn_attribute')][0]
-            for host_entry in attrs_dict[
-                    self.config.get('ldap_vpn_acls_attribute_host')]:
+            rulename = attrs_dict[self.config.get('ldap_vpn_acls_rdn_attribute')][0]
+            for host_entry in attrs_dict[self.config.get('ldap_vpn_acls_attribute_host')]:
                 try:
                     raw_acl_object = self._split_vpn_acl_string(host_entry)
-                except netaddr.core.AddrFormatError:  # pragma: no cover
+                except netaddr.core.AddrFormatError:
                     raw_acl_object = None
                 if raw_acl_object:
                     # If something ISN'T valid, silently ignore it.
