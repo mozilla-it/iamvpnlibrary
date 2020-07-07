@@ -83,7 +83,7 @@ class TestLDAPFunctions(unittest.TestCase):
         self.assertEqual(
             self.library._split_vpn_acl_string('hostname.domain.org'),
             ParsedACL(rule='', address='hostname.domain.org',
-                      portstring='', description=''),
+                      portstring='', description='hostname.domain.org'),
             'hostname parsing failed')
         with self.assertRaises(netaddr.core.AddrFormatError):
             # Bogus IPv4 address:port must be fatal
