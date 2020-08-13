@@ -108,7 +108,7 @@ class TestBaseFunctions(unittest.TestCase):
             filepointer.write('[aa]\nbb = cc\n')
         filepointer.close()
         with mock.patch.object(IAMVPNLibraryBase, 'CONFIG_FILE_LOCATIONS',
-                               new=[test_reading_file]):
+                               new=['/tmp/no-such-file.txt', test_reading_file]):
             result = self.library._ingest_config_from_file()
         os.remove(test_reading_file)
         self.assertIsInstance(result, configparser.ConfigParser,

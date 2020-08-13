@@ -7,6 +7,7 @@
     This file creates a base object for IAM VPN access information.
 """
 
+import os
 import re
 import collections
 import ast
@@ -62,11 +63,12 @@ class IAMVPNLibraryBase(object):
         """
         config = configparser.ConfigParser()
         for filename in self.__class__.CONFIG_FILE_LOCATIONS:
-            try:
-                config.read(filename)
-                break
-            except (configparser.Error):
-                pass
+            if os.path.isfile(filename):
+                try:
+                    config.read(filename)
+                    break
+                except (configparser.Error):
+                    pass
         return config
 
     def read_item_from_config(self, section=None, key=None, default=None):
