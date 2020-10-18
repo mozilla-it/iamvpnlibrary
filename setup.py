@@ -55,7 +55,7 @@ setup(
     keywords='mozilla ldap',
     url='https://github.com/mozilla-it/iamvpnlibrary',
     long_description=read('README.rst'),
-    install_requires=['ldap', 'netaddr'],
+    install_requires=['python-ldap', 'netaddr'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Topic :: Software Development :: Libraries :: Python Modules',
