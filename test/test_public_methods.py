@@ -185,7 +185,7 @@ class PublicTestsMixin(object):
             self.normal_user, 'not_my_password')
         self.assertIsInstance(result, bool, 'Check must return a bool')
         self.assertFalse(result, 'A bad password must return False')
-        if self.normal_user_password is None:
+        if self.normal_user_password is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user_password to test')
         result = self.library.non_mfa_vpn_authentication(
             self.normal_user, self.normal_user_password)
@@ -234,6 +234,9 @@ class PublicTestsServerDownMixin(object):
                 with mock.patch.object(self.library, '_all_vpn_allowed_users',
                                        side_effect=ldap.SERVER_DOWN):
                     self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
+                with mock.patch.object(self.library, '_all_vpn_allowed_users',
+                                       side_effect=ldap.BUSY):
+                    self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
             with mock.patch.object(self.library, 'is_online', return_value=True):
                 with mock.patch.object(self.library, '_all_vpn_allowed_users',
                                        return_value=['a', 'b']):
@@ -248,6 +251,9 @@ class PublicTestsServerDownMixin(object):
                         self.assertEqual(self.library.user_allowed_to_vpn('x'), False)
                     with mock.patch.object(self.library, '_get_user_dn_by_username',
                                            side_effect=ldap.SERVER_DOWN):
+                        self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.BUSY):
                         self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
 
     # get_allowed_vpn_ips 02
@@ -294,6 +300,9 @@ class PublicTestsServerDownMixin(object):
                                        side_effect=ldap.SERVER_DOWN):
                     self.assertEqual(self.library.get_allowed_vpn_acls('x'), [])
                 with mock.patch.object(self.library, '_sanitized_vpn_acls_for_user',
+                                       side_effect=ldap.BUSY):
+                    self.assertEqual(self.library.get_allowed_vpn_acls('x'), [])
+                with mock.patch.object(self.library, '_sanitized_vpn_acls_for_user',
                                        return_value=['a', 'b']):
                     self.assertEqual(self.library.get_allowed_vpn_acls('x'), ['a', 'b'])
 
@@ -325,6 +334,10 @@ class PublicTestsServerDownMixin(object):
                                            side_effect=ldap.SERVER_DOWN):
                         self.assertEqual(self.library.does_user_require_vpn_mfa('x'),
                                          fail_open_mode)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.BUSY):
+                        self.assertEqual(self.library.does_user_require_vpn_mfa('x'),
+                                         fail_open_mode)
 
     # non_mfa_vpn_authentication 05
     def test_05_serverdown(self):
@@ -348,6 +361,10 @@ class PublicTestsServerDownMixin(object):
                 with mock.patch.object(self.library, '_get_user_dn_by_username', return_value='a'):
                     with mock.patch.object(self.library, '_create_ldap_connection',
                                            side_effect=ldap.SERVER_DOWN):
+                        self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'),
+                                         fail_open_mode)
+                    with mock.patch.object(self.library, '_create_ldap_connection',
+                                           side_effect=ldap.BUSY):
                         self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'),
                                          fail_open_mode)
                     with mock.patch.object(self.library, '_create_ldap_connection',

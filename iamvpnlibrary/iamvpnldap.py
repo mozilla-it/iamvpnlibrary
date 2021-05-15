@@ -486,13 +486,13 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return self.fail_open
         try:
             all_allowed_users = self._all_vpn_allowed_users()
-        except ldap.SERVER_DOWN:
+        except (ldap.SERVER_DOWN, ldap.BUSY):
             return self.fail_open
         try:
             user_dn = self._get_user_dn_by_username(input_email)
         except ldap.NO_SUCH_OBJECT:
             return False
-        except ldap.SERVER_DOWN:
+        except (ldap.SERVER_DOWN, ldap.BUSY):
             return self.fail_open
         return user_dn in all_allowed_users
 
@@ -553,7 +553,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # True : they don't exist, so we're into a
             # don'tcare edge case.  They are not exempt.
             return True
-        except ldap.SERVER_DOWN:
+        except (ldap.SERVER_DOWN, ldap.BUSY):
             return self.fail_open
         # If the user exists and are NOT in a list, then we want MFA.
         return user_dn not in exempted_users
@@ -598,7 +598,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         except ldap.NO_SUCH_OBJECT:
             # A nonexistent user has no ACLs
             return []
-        except ldap.SERVER_DOWN:
+        except (ldap.SERVER_DOWN, ldap.BUSY):
             return []
 
     def non_mfa_vpn_authentication(self, input_username, input_password):
@@ -630,7 +630,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             self._create_ldap_connection(
                 self.config.get('ldap_url'), user_dn, input_password)
             return True
-        except ldap.SERVER_DOWN:
+        except (ldap.SERVER_DOWN, ldap.BUSY):
             return self.fail_open
         except ldap.LDAPError:
             return False
