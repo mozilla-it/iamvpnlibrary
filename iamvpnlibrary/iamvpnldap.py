@@ -249,8 +249,10 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return: set(['mail=user@foo.com,o=com,dc=company',
                          'mail=user2@foo.com,o=com,dc=company' ...])
         """
-        ldap_enabled_users = self._get_all_enabled_users()
-        vpn_acl_enabled_users = self._get_acl_allowed_users()
+        _ldap_enabled_users = self._get_all_enabled_users()
+        _vpn_acl_enabled_users = self._get_acl_allowed_users()
+        ldap_enabled_users = set([item.lower() for item in _ldap_enabled_users])
+        vpn_acl_enabled_users = set([item.lower() for item in _vpn_acl_enabled_users])
         allowed_users = ldap_enabled_users & vpn_acl_enabled_users
         return allowed_users
 

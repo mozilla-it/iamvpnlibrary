@@ -89,9 +89,9 @@ class TestLDAPFunctions(unittest.TestCase):
         """
         # First, simulation tests:
         with mock.patch.object(self.library, '_get_all_enabled_users',
-                               return_value=set(['a', 'b', 'c'])), \
+                               return_value=set(['a', 'b', 'C'])), \
                 mock.patch.object(self.library, '_get_acl_allowed_users',
-                                  return_value=set(['b', 'c', 'd'])):
+                                  return_value=set(['B', 'c', 'd'])):
             result = self.library._all_vpn_allowed_users()
             self.assertEqual(result, set(['b', 'c']))
         # Now, test it live:
