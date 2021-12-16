@@ -485,16 +485,17 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         if not self.is_online():
             return self.fail_open
         try:
-            all_allowed_users = self._all_vpn_allowed_users()
+            _all_allowed_users = self._all_vpn_allowed_users()
         except (ldap.SERVER_DOWN, ldap.BUSY):
             return self.fail_open
+        all_allowed_users = [each_string.lower() for each_string in _all_allowed_users]
         try:
             user_dn = self._get_user_dn_by_username(input_email)
         except ldap.NO_SUCH_OBJECT:
             return False
         except (ldap.SERVER_DOWN, ldap.BUSY):
             return self.fail_open
-        return user_dn in all_allowed_users
+        return user_dn.lower() in all_allowed_users
 
     def does_user_require_vpn_mfa(self, input_email):
         """

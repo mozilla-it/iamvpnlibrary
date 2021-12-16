@@ -239,9 +239,12 @@ class PublicTestsServerDownMixin(object):
                     self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
             with mock.patch.object(self.library, 'is_online', return_value=True):
                 with mock.patch.object(self.library, '_all_vpn_allowed_users',
-                                       return_value=['a', 'b']):
+                                       return_value=['a', 'b', 'C']):
                     with mock.patch.object(self.library, '_get_user_dn_by_username',
                                            return_value='a'):
+                        self.assertEqual(self.library.user_allowed_to_vpn('x'), True)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           return_value='c'):
                         self.assertEqual(self.library.user_allowed_to_vpn('x'), True)
                     with mock.patch.object(self.library, '_get_user_dn_by_username',
                                            return_value='z'):
