@@ -61,10 +61,7 @@ groups_base = ou=groups,%(base)s
 # Most humans have an RDN of mail=them@company.com.  'mail' is the RDN
 # attribute.  non-humans ruin that, with uid=somename,ou=logins.
 # That said, nonhumans have their mail attribute set to an address
-# that matches their VPN certificate.  So, when we say 'mail_attribute'
-# we actually mean "what a user's RDN attribute would be" in most any
-# other place.  So when you look down at the next section of this
-# example config, imagine this is the same as 'rdn_attribute'
+# that matches their VPN certificate.
 mail_attribute = mail
 #
 # The 'enabled_user_filter' is "how do you define if a user is not
@@ -128,3 +125,8 @@ normal_user = me@company.com
 # commented out completely to get a pythonic 'None' and skip password based
 # testing.
 ; normal_user_password = 12345
+#
+# If you have a user that is allowed to do 1fa all the time, share here
+# for dedicated testing.
+1fa_user = vpn-1fa-tester
+; 1fa_user_password = 12345

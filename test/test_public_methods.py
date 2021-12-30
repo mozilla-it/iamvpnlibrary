@@ -37,6 +37,10 @@ class PublicTestsMixin(object):
             section='testing', key='normal_user_password', default=None)
         self.bad_user = self.library.read_item_from_config(
             section='testing', key='bad_user', default=None)
+        self.one_fa_user = self.library.read_item_from_config(
+            section='testing', key='1fa_user', default=None)
+        self.one_fa_user_password = self.library.read_item_from_config(
+            section='testing', key='1fa_user_password', default=None)
 
     # user_allowed_to_vpn 01
     def test_01_serverup_good(self):
@@ -147,7 +151,7 @@ class PublicTestsMixin(object):
                          'A bad user should have no allowed IPs')
 
     # does_user_require_vpn_mfa 04
-    def test_04_serverup_good(self):
+    def test_04_serverup_good_mfa(self):
         """
             This test seeks to verify that a user connecting to VPN
             must use MFA.
@@ -158,6 +162,17 @@ class PublicTestsMixin(object):
         self.assertIsInstance(result, bool, 'Check must return a bool')
         self.assertTrue(result, 'good user must return True')
         # IMPROVEME - might want to list one of the excepted users
+
+    def test_04_serverup_good_1fa(self):
+        """
+            This test seeks to verify that a 1fa user connecting to VPN
+            must use MFA.
+        """
+        if self.one_fa_user is None:  # pragma: no cover
+            self.skipTest('Must provide a .one_fa_user to test')
+        result = self.library.does_user_require_vpn_mfa(self.one_fa_user)
+        self.assertIsInstance(result, bool, 'Check must return a bool')
+        self.assertFalse(result, '1fa user must return True')
 
     def test_04_serverup_bad(self):
         """
@@ -174,10 +189,10 @@ class PublicTestsMixin(object):
         self.assertTrue(result, 'bad user must return True')
 
     # non_mfa_vpn_authentication 05
-    def test_05_serverup_good(self):
+    def test_05_serverup_good_mfa(self):
         """
             This test seeks to verify that a user who does not use
-            MFA can authenticate.
+            MFA can authenticate, using an MFA user
         """
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
@@ -189,6 +204,27 @@ class PublicTestsMixin(object):
             self.skipTest('Must provide a .normal_user_password to test')
         result = self.library.non_mfa_vpn_authentication(
             self.normal_user, self.normal_user_password)
+        self.assertIsInstance(result, bool, 'Check must return a bool')
+        self.assertTrue(result, 'A good password must return True')
+
+    def test_05_serverup_good_1fa(self):
+        """
+            This test seeks to verify that a user who does not use
+            MFA can authenticate, using a 1fa user.
+
+            This mostly dupes the above test but with more options
+            for being explicit and correct.
+        """
+        if self.one_fa_user is None:  # pragma: no cover
+            self.skipTest('Must provide a .one_fa_user to test')
+        result = self.library.non_mfa_vpn_authentication(
+            self.one_fa_user, 'not_my_password')
+        self.assertIsInstance(result, bool, 'Check must return a bool')
+        self.assertFalse(result, 'A bad password must return False')
+        if self.one_fa_user_password is None:  # pragma: no cover
+            self.skipTest('Must provide a .one_fa_user_password to test')
+        result = self.library.non_mfa_vpn_authentication(
+            self.one_fa_user, self.one_fa_user_password)
         self.assertIsInstance(result, bool, 'Check must return a bool')
         self.assertTrue(result, 'A good password must return True')
 
