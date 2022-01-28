@@ -273,6 +273,9 @@ class PublicTestsServerDownMixin(object):
                 with mock.patch.object(self.library, '_all_vpn_allowed_users',
                                        side_effect=ldap.BUSY):
                     self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
+                with mock.patch.object(self.library, '_all_vpn_allowed_users',
+                                       side_effect=ldap.UNAVAILABLE):
+                    self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
             with mock.patch.object(self.library, 'is_online', return_value=True):
                 with mock.patch.object(self.library, '_all_vpn_allowed_users',
                                        return_value=['a', 'b', 'C']):
@@ -293,6 +296,9 @@ class PublicTestsServerDownMixin(object):
                         self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
                     with mock.patch.object(self.library, '_get_user_dn_by_username',
                                            side_effect=ldap.BUSY):
+                        self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.UNAVAILABLE):
                         self.assertEqual(self.library.user_allowed_to_vpn('x'), fail_open_mode)
 
     # get_allowed_vpn_ips 02
@@ -342,6 +348,9 @@ class PublicTestsServerDownMixin(object):
                                        side_effect=ldap.BUSY):
                     self.assertEqual(self.library.get_allowed_vpn_acls('x'), [])
                 with mock.patch.object(self.library, '_sanitized_vpn_acls_for_user',
+                                       side_effect=ldap.UNAVAILABLE):
+                    self.assertEqual(self.library.get_allowed_vpn_acls('x'), [])
+                with mock.patch.object(self.library, '_sanitized_vpn_acls_for_user',
                                        return_value=['a', 'b']):
                     self.assertEqual(self.library.get_allowed_vpn_acls('x'), ['a', 'b'])
 
@@ -377,6 +386,10 @@ class PublicTestsServerDownMixin(object):
                                            side_effect=ldap.BUSY):
                         self.assertEqual(self.library.does_user_require_vpn_mfa('x'),
                                          fail_open_mode)
+                    with mock.patch.object(self.library, '_get_user_dn_by_username',
+                                           side_effect=ldap.UNAVAILABLE):
+                        self.assertEqual(self.library.does_user_require_vpn_mfa('x'),
+                                         fail_open_mode)
 
     # non_mfa_vpn_authentication 05
     def test_05_serverdown(self):
@@ -404,6 +417,10 @@ class PublicTestsServerDownMixin(object):
                                          fail_open_mode)
                     with mock.patch.object(self.library, '_create_ldap_connection',
                                            side_effect=ldap.BUSY):
+                        self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'),
+                                         fail_open_mode)
+                    with mock.patch.object(self.library, '_create_ldap_connection',
+                                           side_effect=ldap.UNAVAILABLE):
                         self.assertEqual(self.library.non_mfa_vpn_authentication('x', 'y'),
                                          fail_open_mode)
                     with mock.patch.object(self.library, '_create_ldap_connection',
