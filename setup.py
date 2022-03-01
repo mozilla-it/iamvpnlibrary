@@ -10,7 +10,7 @@ import subprocess
 from setuptools import setup
 
 NAME = 'iamvpnlibrary'
-VERSION = '0.34.0'
+VERSION = '0.35.0'
 
 
 def git_version():
