@@ -146,7 +146,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             self.config.get('ldap_base'), ldap.SCOPE_SUBTREE,
             filterstr=('(' + self.config.get('ldap_user_mail_attribute') +
                        '=' + input_username + ')'),
-            attrlist=[]
+            attrlist=['dn']
             )
         # res should be a list of a tuple of a string and a dict:
         #   [
@@ -186,7 +186,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                 '(&' + self.config.get('ldap_user_enabled_user_filter') +
                 '(' + self.config.get('ldap_user_mail_attribute') + '=*)' +
                 ')'),
-            attrlist=[])
+            attrlist=['dn'])
         for user_dn, _attr in res:
             users.add(user_dn)
         return users
