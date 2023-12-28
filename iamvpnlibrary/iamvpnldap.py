@@ -451,7 +451,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                             # somehow, er did error, oh well.  No ACL.
                             all_addresses = []
                         else:
-                            all_addresses = [netaddr.ip.IPNetwork(x) for x in lookup[2]]
+                            all_addresses = [netaddr.ip.IPNetwork(x) for x in set(lookup[2])]
 
                     # Now, if it WAS valid, repack the namedtuple ParsedACL
                     # to include the name of the rule that got us this
