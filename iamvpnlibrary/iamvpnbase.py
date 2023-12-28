@@ -11,11 +11,7 @@ import os
 import re
 import collections
 import ast
-try:
-    import configparser
-except ImportError:  # pragma: no cover
-    from six.moves import configparser
-import six
+import configparser
 
 ParsedACL = collections.namedtuple(
     'ParsedACL', ['rule', 'address', 'portstring', 'description'])
@@ -92,7 +88,7 @@ class IAMVPNLibraryBase(object):
         # We will override this only after going through a gauntlet:
         if username_is and username_as:
             # ^ bypass on deletes
-            if (isinstance(self.sudo_username_regexp, six.string_types) and
+            if (isinstance(self.sudo_username_regexp, str) and
                     isinstance(self.sudo_users, list) and username_is in self.sudo_users):
                 # ^ This is deliberately unforgiving, as a safety measure.
                 # At this point we have:

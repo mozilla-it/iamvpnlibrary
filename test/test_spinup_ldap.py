@@ -8,6 +8,7 @@
 # file, so, we tell pylint that we're cool with it:
 
 import unittest
+import configparser
 import test.context  # pylint: disable=unused-import
 import netaddr
 from netaddr import IPNetwork
@@ -15,10 +16,6 @@ import mock
 import ldap
 from iamvpnlibrary.iamvpnbase import IAMVPNLibraryBase, ParsedACL
 from iamvpnlibrary.iamvpnldap import IAMVPNLibraryLDAP
-try:
-    import configparser
-except ImportError:  # pragma: no cover
-    from six.moves import configparser
 
 
 class TestLDAPSpinup(unittest.TestCase):

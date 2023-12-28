@@ -13,7 +13,6 @@ import netaddr
 from netaddr import IPNetwork
 import mock
 import ldap
-import six
 from iamvpnlibrary import IAMVPNLibrary
 from iamvpnlibrary.iamvpnbase import ParsedACL
 from iamvpnlibrary.iamvpnldap import IAMVPNLibraryLDAP
@@ -80,7 +79,7 @@ class PublicTestsMixin(object):
         self.assertGreater(len(result), 5,
                            'If this failed, someone has very few acls.')
         addr = result[0]
-        self.assertIsInstance(addr, six.string_types,
+        self.assertIsInstance(addr, str,
                               'Check did not return IP strings')
         try:
             # verify that we're returning parseable strings
@@ -122,7 +121,7 @@ class PublicTestsMixin(object):
         self.assertIsInstance(pacl, ParsedACL,
                               'Did not return a list of ParsedACLs')
         # rule can be empty
-        self.assertIsInstance(pacl.rule, six.string_types,
+        self.assertIsInstance(pacl.rule, str,
                               'The ParsedACL rule was not a string')
         # address is an object and must be there
         self.assertIsInstance(pacl.address, IPNetwork,
@@ -130,10 +129,10 @@ class PublicTestsMixin(object):
         self.assertGreaterEqual(pacl.address.size, 1,
                                 'The ParsedACL address did not have a size?')
         # portstring can be empty
-        self.assertIsInstance(pacl.portstring, six.string_types,
+        self.assertIsInstance(pacl.portstring, str,
                               'The ParsedACL portstring was not a string')
         # description can be empty
-        self.assertIsInstance(pacl.description, six.string_types,
+        self.assertIsInstance(pacl.description, str,
                               'The ParsedACL description was not a string')
 
     def test_03_serverup_bad(self):

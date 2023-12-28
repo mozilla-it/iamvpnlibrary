@@ -10,7 +10,6 @@ import test.context  # pylint: disable=unused-import
 from netaddr import IPNetwork
 import mock
 import ldap
-import six
 from iamvpnlibrary.iamvpnldap import IAMVPNLibraryLDAP
 from iamvpnlibrary.iamvpnbase import ParsedACL
 
@@ -145,7 +144,7 @@ class TestLDAPFunctions(unittest.TestCase):
         # the LDAP format changed.  Most of this you don't need to stare at.
         self.assertIsInstance(acl, tuple,
                               'Did not get an LDAP ACL tuple')
-        self.assertIsInstance(acl[0], six.string_types,
+        self.assertIsInstance(acl[0], str,
                               ('The supposed LDAP ACL tuple did not have '
                                'a DN string as arg 0'))
         self.assertIsInstance(acl[1], dict,
@@ -235,7 +234,7 @@ class TestLDAPFunctions(unittest.TestCase):
         self.assertIsInstance(pacl, ParsedACL,
                               'Did not return a list of ParsedACLs')
         # rule can be empty
-        self.assertIsInstance(pacl.rule, six.string_types,
+        self.assertIsInstance(pacl.rule, str,
                               'The ParsedACL rule was not a string')
         # address is an object and must be there
         self.assertIsInstance(pacl.address, IPNetwork,
@@ -243,10 +242,10 @@ class TestLDAPFunctions(unittest.TestCase):
         self.assertGreaterEqual(pacl.address.size, 1,
                                 'The ParsedACL address did not have a size?')
         # portstring can be empty
-        self.assertIsInstance(pacl.portstring, six.string_types,
+        self.assertIsInstance(pacl.portstring, str,
                               'The ParsedACL portstring was not a string')
         # description can be empty
-        self.assertIsInstance(pacl.description, six.string_types,
+        self.assertIsInstance(pacl.description, str,
                               'The ParsedACL description was not a string')
 
     def test_vpn_mfa_exempt_users(self):
@@ -297,7 +296,7 @@ class TestLDAPFunctions(unittest.TestCase):
         if self.normal_user is None:  # pragma: no cover
             self.skipTest('Must provide a .normal_user to test')
         result = self.library._get_user_dn_by_username(self.normal_user)
-        self.assertIsInstance(result, six.string_types,
+        self.assertIsInstance(result, str,
                               'search for username must return a DN string')
         self.assertIn(','+self.library.config['ldap_base'], result,
                       ('A random user from the set does not match '

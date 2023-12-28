@@ -15,7 +15,6 @@
 import re
 import socket
 import ldap
-import six
 import netaddr
 from .iamvpnbase import IAMVPNLibraryBase, ParsedACL
 
@@ -140,7 +139,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return: str of their DN
             raises if there's no such user.
         """
-        if not isinstance(input_username, six.string_types):
+        if not isinstance(input_username, str):
             raise TypeError(input_username, 'Argument must be a string')
         res = self.conn.search_s(
             self.config.get('ldap_base'), ldap.SCOPE_SUBTREE,
@@ -269,7 +268,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             return: ParsedACL
                     raise for horrible inputs
         """
-        if not isinstance(input_string, six.string_types):
+        if not isinstance(input_string, str):
             raise TypeError(input_string, 'Argument must be a string')
         # input_string should be:
         #    '1.1.1.1 # foo.m.c'
@@ -361,7 +360,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             input_email: "user@company.com"
             return: ldap response
         """
-        if not isinstance(input_email, six.string_types):
+        if not isinstance(input_email, str):
             raise TypeError(input_email, 'Argument must be a string')
         user_dn = self._get_user_dn_by_username(input_email)
         rdn_attr = self.config.get('ldap_vpn_acls_rdn_attribute')
@@ -401,7 +400,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             different people want different results (every ACL? every IP?
             Just the IPs?  What about a CIDR that encapsulates another?)
         """
-        if not isinstance(input_email, six.string_types):
+        if not isinstance(input_email, str):
             raise TypeError(input_email, 'Argument must be a string')
         raw_acls = self._fetch_vpn_acls_for_user(input_email)
         acls = []
@@ -482,7 +481,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             Outside user: duo_openvpn
             Outside user: duo_openvpn kill script
         """
-        if not isinstance(input_email, six.string_types):
+        if not isinstance(input_email, str):
             raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             return self.fail_open
@@ -513,7 +512,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: duo_openvpn
         """
-        if not isinstance(input_email, six.string_types):
+        if not isinstance(input_email, str):
             raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             # This is going to be a bit of mental gymnastics.
@@ -570,7 +569,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: openvpn-client-connect
         """
-        if not isinstance(input_email, six.string_types):
+        if not isinstance(input_email, str):
             raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             # Absentee server means no IPs
@@ -591,7 +590,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: openvpn-netfilter
         """
-        if not isinstance(input_email, six.string_types):
+        if not isinstance(input_email, str):
             raise TypeError(input_email, 'Argument must be a string')
         if not self.is_online():
             # Absentee server means no ACLs
@@ -614,9 +613,9 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
 
             Outside user: duo_openvpn
         """
-        if not isinstance(input_username, six.string_types):
+        if not isinstance(input_username, str):
             raise TypeError(input_username, 'Argument must be a string')
-        if not isinstance(input_password, six.string_types):
+        if not isinstance(input_password, str):
             raise TypeError(input_password, 'Argument must be a string')
         if not self.is_online():
             # A user could not be looked up.  fail open as needed.

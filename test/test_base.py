@@ -12,13 +12,10 @@
 
 import unittest
 import os
+import configparser
 import test.context  # pylint: disable=unused-import
 import mock
 from iamvpnlibrary.iamvpnbase import IAMVPNLibraryBase
-try:
-    import configparser
-except ImportError:  # pragma: no cover
-    from six.moves import configparser
 
 
 class TestBaseFunctions(unittest.TestCase):
