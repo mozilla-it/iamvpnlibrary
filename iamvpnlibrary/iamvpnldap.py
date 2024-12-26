@@ -40,7 +40,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
             instantiate the object, and validate the config file contents.
         """
-        super(IAMVPNLibraryLDAP, self).__init__()
+        super().__init__()
         self.config = self._validate_config_file()
         try:
             self.conn = self._create_ldap_connection(
@@ -48,7 +48,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                 self.config.get('ldap_bind_dn'),
                 self.config.get('ldap_bind_password'))
         except ldap.LDAPError as ldaperr:
-            raise RuntimeError('Error connecting to LDAP IAM: {}'.format(ldaperr))
+            raise RuntimeError(f'Error connecting to LDAP IAM: {ldaperr}') from ldaperr
 
     def is_online(self):
         """
@@ -105,7 +105,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             value = self.read_item_from_config(*tup)
             if value is None:
                 raise ValueError(
-                    'Unable to locate config item {0} / {1}'.format(tup[0], tup[1]))
+                    f'Unable to locate config item {tup[0]} / {tup[1]}')
             config[config_key] = value
 
         return config
@@ -250,8 +250,8 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         """
         _ldap_enabled_users = self._get_all_enabled_users()
         _vpn_acl_enabled_users = self._get_acl_allowed_users()
-        ldap_enabled_users = set([item.lower() for item in _ldap_enabled_users])
-        vpn_acl_enabled_users = set([item.lower() for item in _vpn_acl_enabled_users])
+        ldap_enabled_users = {item.lower() for item in _ldap_enabled_users}
+        vpn_acl_enabled_users = {item.lower() for item in _vpn_acl_enabled_users}
         allowed_users = ldap_enabled_users & vpn_acl_enabled_users
         return allowed_users
 
@@ -313,7 +313,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # https://github.com/drkjam/netaddr/issues/58
             # We form the 'proper' error to raise, because in the future
             # this is what will happen when netaddr is patched.
-            error_to_raise = netaddr.core.AddrFormatError('invalid ACL entry: %r!' % test_string)
+            error_to_raise = netaddr.core.AddrFormatError(f'invalid ACL entry: {test_string}!')
         except netaddr.core.AddrFormatError as errcode:
             error_to_raise = errcode
         else:
@@ -337,22 +337,21 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             # We will raise here if the address was not parseable.
             # This is intentional.  We mainly care about this from
             # within the 'is valid' call.
-            raise error_to_raise
-        else:
-            # Populate a ParsedACL BUT BADLY.
-            # We are putting the hostNAME in 'address' instead of the majority
-            # case of an IPNetwork.  Since we've validated this enough to know
-            # that we're not sending garbage, we'll rely on someone upstream
-            # to turn this into multiple ACLs.  We only want to return ONE
-            # thing from this function.
-            if not description:
-                # If someone didn't include a comment, make the
-                # hostname be the description.
-                description = test_string
-            return ParsedACL(rule='',
-                             address=test_string,
-                             portstring=port_string,
-                             description=description)
+            raise error_to_raise  # pylint: disable=raise-missing-from
+        # Populate a ParsedACL BUT BADLY.
+        # We are putting the hostNAME in 'address' instead of the majority
+        # case of an IPNetwork.  Since we've validated this enough to know
+        # that we're not sending garbage, we'll rely on someone upstream
+        # to turn this into multiple ACLs.  We only want to return ONE
+        # thing from this function.
+        if not description:
+            # If someone didn't include a comment, make the
+            # hostname be the description.
+            description = test_string
+        return ParsedACL(rule='',
+                         address=test_string,
+                         portstring=port_string,
+                         description=description)
 
     def _fetch_vpn_acls_for_user(self, input_email):
         """

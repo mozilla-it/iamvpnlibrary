@@ -103,7 +103,7 @@ class TestBaseFunctions(unittest.TestCase):
         """ With an actual config file, get a populated ConfigParser """
         _not_a_real_file = '/tmp/no-such-file.txt'  # nosec hardcoded_tmp_directory
         test_reading_file = '/tmp/test-reader.txt'  # nosec hardcoded_tmp_directory
-        with open(test_reading_file, 'w') as filepointer:
+        with open(test_reading_file, 'w', encoding='utf-8') as filepointer:
             filepointer.write('[aa]\nbb = cc\n')
         filepointer.close()
         with mock.patch.object(IAMVPNLibraryBase, 'CONFIG_FILE_LOCATIONS',
