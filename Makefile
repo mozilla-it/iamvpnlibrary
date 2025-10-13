@@ -14,14 +14,7 @@ ifneq (, $(PLAIN_PYTHON))
   RPM_MAKE_TARGET = rpm2
 endif
 
-COVERAGE2 = $(shell which coverage 2>/dev/null)
-COVERAGE3 = $(shell which coverage-3 2>/dev/null)
-ifneq (, $(COVERAGE2))
-  COVERAGE = $(COVERAGE2)
-endif
-ifneq (, $(COVERAGE3))
-  COVERAGE = $(COVERAGE3)
-endif
+COVERAGE = $(shell which coverage 2>/dev/null)
 
 all: test
 
