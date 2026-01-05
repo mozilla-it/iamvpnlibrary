@@ -308,12 +308,6 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         try:
             address = netaddr.ip.IPNetwork(test_string)
             # If this doesn't bomb, it was a CIDR-like address.
-        except ValueError:  # pragma: no cover
-            # This catches a stupid error in old netaddr before 0.7.11
-            # https://github.com/drkjam/netaddr/issues/58
-            # We form the 'proper' error to raise, because in the future
-            # this is what will happen when netaddr is patched.
-            error_to_raise = netaddr.core.AddrFormatError(f'invalid ACL entry: {test_string}!')
         except netaddr.core.AddrFormatError as errcode:
             error_to_raise = errcode
         else:
