@@ -303,6 +303,9 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             test_string = unparsed_destination
             port_string = ''
 
+        # Establish 'error_to_raise' here, we need it if we fall past this
+        # try block.
+        error_to_raise = None
         # At this point we have something that's PROBABLY an address.
         # Let's have the experts handle it:
         try:
@@ -320,7 +323,11 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                              portstring=port_string,
                              description=description)
 
-        # We got a string that wasn't valid as a CIDR.  Time to see if
+        # We've now blown up, returned, or error_to_raise is an address
+        # format error telling us we didn't have a CIDR.  That's fine,
+        # now let's see if we can save it.
+
+        # 'test_string' wasn't valid as a CIDR.  Time to see if
         # it was a hostname (let's save that) or garbage (discard)
         # There's guesswork here.  If something resolves as hostname
         # it's probably a hostname.  If it doesn't, it's something we

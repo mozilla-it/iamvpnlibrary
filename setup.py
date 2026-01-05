@@ -34,14 +34,10 @@ def git_version():
         out = _minimal_ext_cmd(['git', 'rev-parse', 'HEAD'])
         git_revision = out.strip().decode('ascii')
     except OSError:
-        git_revision = u"Unknown"
+        git_revision = 'Unknown'
 
     return git_revision
 
-
-def read(fname):
-    """ Contents of a single filename """
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
     name=NAME,
@@ -54,7 +50,7 @@ setup(
     license='MPL',
     keywords='mozilla ldap',
     url='https://github.com/mozilla-it/iamvpnlibrary',
-    long_description=read('README.rst'),
+    long_description=open('README.rst', encoding='utf-8').read(),
     install_requires=['python-ldap', 'netaddr'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
