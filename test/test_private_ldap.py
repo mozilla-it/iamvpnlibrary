@@ -213,6 +213,9 @@ class TestLDAPFunctions(unittest.TestCase):
                                                           'hostattr': ['localhost # lokal']})]):
                 result = self.library._sanitized_vpn_acls_for_user('anyone')
                 self.assertEqual(result, [ParsedACL(rule='vpn_lh',
+                                                    address=IPNetwork('::1/128'),
+                                                    portstring='', description='lokal'),
+                                          ParsedACL(rule='vpn_lh',
                                                     address=IPNetwork('127.0.0.1/32'),
                                                     portstring='', description='lokal')])
             # User with a null hostname ACL somehow:

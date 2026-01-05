@@ -333,7 +333,7 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
         # it's probably a hostname.  If it doesn't, it's something we
         # didn't expect.  But either way, it's not a useful ACL.
         try:
-            socket.gethostbyname(test_string)
+            socket.getaddrinfo(test_string, None)
         except socket.error:
             # We will raise here if the address was not parseable.
             # This is intentional.  We mainly care about this from
@@ -440,17 +440,18 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
                         # we got a hostname.  Prior testing said it
                         # resolves so we shouldn't error here.
                         try:
-                            # caution, gethostbyname_ex is ipv4-only.
                             # caution: lookups from the server may not
                             # be the same as lookups for a client.
                             # Short of ingesting all routes and DNS from them,
                             # we can never know for sure, but, we're trying.
-                            lookup = socket.gethostbyname_ex(raw_addr)
-                        except socket.error:
-                            # somehow, er did error, oh well.  No ACL.
+                            lookup = socket.getaddrinfo(raw_addr, None)
+                        except socket.error:  # pragma: no cover
+                            # This is a case of _fetch_vpn_acls_for_user getting a valid
+                            # lookup of a hostname, and upon recheck, we got an error.
+                            # That should never happen, but in case it does, No ACL.
                             all_addresses = []
                         else:
-                            all_addresses = [netaddr.ip.IPNetwork(x) for x in set(lookup[2])]
+                            all_addresses = {netaddr.ip.IPNetwork(x[4][0]) for x in lookup}
 
                     # Now, if it WAS valid, repack the namedtuple ParsedACL
                     # to include the name of the rule that got us this
