@@ -73,6 +73,16 @@ class TestLDAPSpinup(unittest.TestCase):
                       portstring='443', description=''),
             'IPv4 host:port parsing failed')
         self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('1.1.1.1/30:22'),
+            ParsedACL(rule='', address=IPNetwork('1.1.1.1/30'),
+                      portstring='22', description=''),
+            'IPv4 CIDR with port parsing failed')
+        self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('1.1.1.1/30:80,443'),
+            ParsedACL(rule='', address=IPNetwork('1.1.1.1/30'),
+                      portstring='80,443', description=''),
+            'IPv4 CIDR with multiport parsing failed')
+        self.assertEqual(
             IAMVPNLibraryLDAP._split_vpn_acl_string('dead::beef'),
             ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
                       portstring='', description=''),
@@ -91,15 +101,45 @@ class TestLDAPSpinup(unittest.TestCase):
                       portstring='', description=''),
             'Simple IPv6 CIDR parsing failed')
         self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('[dead::beef]'),
+            ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
+                      portstring='', description=''),
+            'IPv6 bracketed-host-without-port parsing failed')
+        self.assertEqual(
             IAMVPNLibraryLDAP._split_vpn_acl_string('[dead::beef]:443'),
             ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
                       portstring='443', description=''),
             'IPv6 host:port parsing failed')
         self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('[dead::beef]:80,443'),
+            ParsedACL(rule='', address=IPNetwork('dead::beef/128'),
+                      portstring='80,443', description=''),
+            'IPv6 host:multiport parsing failed')
+        self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('[de:ad:be:ef::/64]:443'),
+            ParsedACL(rule='', address=IPNetwork('de:ad:be:ef::/64'),
+                      portstring='443', description=''),
+            'IPv6 net:port parsing failed')
+        self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('[de:ad:be:ef::/64]:80,443'),
+            ParsedACL(rule='', address=IPNetwork('de:ad:be:ef::/64'),
+                      portstring='80,443', description=''),
+            'IPv6 net:multiport parsing failed')
+        self.assertEqual(
             IAMVPNLibraryLDAP._split_vpn_acl_string('hostname.domain.org'),
             ParsedACL(rule='', address='hostname.domain.org',
                       portstring='', description='hostname.domain.org'),
             'hostname parsing failed')
+        self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('hostname.domain.org:443'),
+            ParsedACL(rule='', address='hostname.domain.org',
+                      portstring='443', description='hostname.domain.org'),
+            'hostname:port parsing failed')
+        self.assertEqual(
+            IAMVPNLibraryLDAP._split_vpn_acl_string('hostname.domain.org:22,443'),
+            ParsedACL(rule='', address='hostname.domain.org',
+                      portstring='22,443', description='hostname.domain.org'),
+            'hostname:multiport parsing failed')
         with self.assertRaises(netaddr.core.AddrFormatError):
             # Bogus IPv4 address:port must be fatal
             IAMVPNLibraryLDAP._split_vpn_acl_string('1.1.1.1111:443')

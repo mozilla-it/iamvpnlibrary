@@ -281,14 +281,13 @@ class IAMVPNLibraryLDAP(IAMVPNLibraryBase):
             description = ''
         if unparsed_destination.count(':') > 1:
             # There's more than 1 colon.  That means we need to think ipv6.
-            # We are somewhat in dangerous territory, as I'm writing this
-            # before we really have ipv6 ACLs going on.
-            v6_match = re.search(r'^\[(.*)\]:(.*)', unparsed_destination)
+            v6_match = re.search(r'^\[(.*)\](?::(.*))?', unparsed_destination)
             if v6_match:
-                # First case, let's see if we have '[::]:443':
-                # The brackets will be there if we have a port to strip
+                # First case, let's see if we have '[::]:443' or '[::]':
+                # The brackets will be there if we have a port to strip, for sure,
+                # and we can tolerate a bracketed CIDR without port, too.
                 test_string = v6_match.group(1)
-                port_string = v6_match.group(2)
+                port_string = v6_match.group(2) or ''
             else:
                 # There's no brackets, so it's probably a plain v6 address.
                 test_string = unparsed_destination
